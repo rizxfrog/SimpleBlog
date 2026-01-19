@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/simple_blog
+    username: user_RYTz54
+    password: password_amC7Wx
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_fQHPzE
+  graphql:
+    graphiql:
+      enabled: true
+    schema:
+      locations: classpath:graphql/
+  jackson:
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  jwt:
+    secret: o0WUqpArX0G6QGVeE9buf6fzwrJvWSuIEYvNkdBmxgj3bK0M/NX/DYU8P8M60OAz7wP1UyBBqoiHMsKmZstLdQ==
+    expiration-seconds: 86400
+  admin:
+    enabled: true
+    username: admin
+    password: admin123
+    display-name: Admin

@@ -1,0 +1,28 @@
+{
+  "name": "simple-blog-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@apollo/client": "^3.12.4",
+    "@vue/apollo-composable": "^4.1.1",
+    "dayjs": "^1.11.13",
+    "element-plus": "^2.8.8",
+    "graphql": "^16.10.0",
+    "marked": "^14.1.2",
+    "pinia": "^3.0.1",
+    "vue": "^3.5.12",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.1.10"
+  }
+}
