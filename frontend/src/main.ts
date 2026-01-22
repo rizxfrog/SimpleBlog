@@ -1,8 +1,7 @@
 ﻿import { createApp, h, provide } from 'vue'
 import { DefaultApolloClient } from '@vue/apollo-composable'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+import { create, NButton, NDataTable, NForm, NFormItem, NInput, NSelect, NSwitch, NTag } from 'naive-ui'
 import App from './App.vue'
 import router from './router'
 import { apolloClient } from './apollo'
@@ -17,9 +16,13 @@ const app = createApp({
 })
 
 const pinia = createPinia()
+const naive = create({
+  components: [NButton, NDataTable, NForm, NFormItem, NInput, NSelect, NSwitch, NTag]
+})
+
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus)
+app.use(naive)
 
 const ui = useUiStore(pinia)
 ui.applyTheme()

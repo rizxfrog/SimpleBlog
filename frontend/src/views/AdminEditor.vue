@@ -1,37 +1,46 @@
-<template>
+﻿<template>
   <AdminShell :title="isEdit ? '编辑文章' : '新建文章'" subtitle="Markdown 编辑与预览">
     <template #actions>
-      <el-button type="primary" class="btn btn-primary" @click="onSubmit">保存</el-button>
+      <n-button type="primary" class="btn btn-primary" @click="onSubmit">保存</n-button>
     </template>
 
     <section class="card editor-panel">
       <div class="editor-meta">
-        <el-form label-position="top">
-          <el-form-item label="标题">
-            <el-input v-model="form.title" placeholder="文章标题" />
-          </el-form-item>
-          <el-form-item label="摘要">
-            <el-input v-model="form.summary" type="textarea" rows="2" placeholder="一句话概括文章内容" />
-          </el-form-item>
+        <n-form label-placement="top">
+          <n-form-item label="标题">
+            <n-input v-model:value="form.title" placeholder="文章标题" />
+          </n-form-item>
+          <n-form-item label="摘要">
+            <n-input
+              v-model:value="form.summary"
+              type="textarea"
+              placeholder="一句话概括文章内容"
+              :autosize="{ minRows: 2, maxRows: 4 }"
+            />
+          </n-form-item>
           <div class="meta-grid">
-            <el-form-item label="分类">
-              <el-select v-model="form.categoryId" placeholder="请选择分类">
-                <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="标签">
-              <el-select v-model="form.tagIds" multiple placeholder="请选择标签">
-                <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
-              </el-select>
-            </el-form-item>
+            <n-form-item label="分类">
+              <n-select v-model:value="form.categoryId" :options="categoryOptions" placeholder="请选择分类" />
+            </n-form-item>
+            <n-form-item label="标签">
+              <n-select
+                v-model:value="form.tagIds"
+                multiple
+                :options="tagOptions"
+                placeholder="请选择标签"
+              />
+            </n-form-item>
           </div>
-          <el-form-item label="封面图">
-            <el-input v-model="form.coverUrl" placeholder="https://example.com/cover.jpg" />
-          </el-form-item>
-          <el-form-item label="发布状态">
-            <el-switch v-model="form.published" active-text="已发布" inactive-text="草稿" />
-          </el-form-item>
-        </el-form>
+          <n-form-item label="封面图">
+            <n-input v-model:value="form.coverUrl" placeholder="https://example.com/cover.jpg" />
+          </n-form-item>
+          <n-form-item label="发布状态">
+            <n-switch v-model:value="form.published">
+              <template #checked>已发布</template>
+              <template #unchecked>草稿</template>
+            </n-switch>
+          </n-form-item>
+        </n-form>
       </div>
 
       <div class="editor-body">
@@ -42,7 +51,7 @@
           <button @click="appendSnippet('_斜体文本_')">I</button>
           <button @click="appendSnippet('> 引用内容')">Quote</button>
           <button @click="appendSnippet('- 列表项')">List</button>
-          <button @click="appendSnippet('```bash\\n\\n```')">Code</button>
+          <button @click="appendSnippet('```bash\n\n```')">Code</button>
           <button @click="appendSnippet('![图片描述](url)')">Img</button>
         </div>
         <div class="editor-split">
@@ -94,6 +103,8 @@ const { result: metaResult } = useQuery(gql`
 
 const categories = computed(() => metaResult.value?.categories ?? [])
 const tags = computed(() => metaResult.value?.tags ?? [])
+const categoryOptions = computed(() => categories.value.map((cat: any) => ({ label: cat.name, value: cat.id })))
+const tagOptions = computed(() => tags.value.map((tag: any) => ({ label: tag.name, value: tag.id })))
 
 const blogQueryOptions = computed(() => ({ enabled: isEdit.value }))
 
