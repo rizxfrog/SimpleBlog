@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@apollo/client": "^3.12.4",
+    "@iconify/vue": "^5.0.0",
     "@vue/apollo-composable": "^4.1.1",
     "dayjs": "^1.11.13",
     "graphql": "^16.10.0",
