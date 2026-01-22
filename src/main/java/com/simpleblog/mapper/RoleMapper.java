@@ -9,6 +9,6 @@ import java.util.List;
 
 @Mapper
 public interface RoleMapper extends BaseMapper<Role> {
-    @Select("select r.* from roles r join user_roles ur on r.id = ur.role_id where ur.user_id = #{userId}")
+    @Select("select r.* from roles r join users u on r.id = u.role_id where u.id = #{userId}")
     List<Role> findRolesByUserId(Long userId);
 }

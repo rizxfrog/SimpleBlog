@@ -1,92 +1,112 @@
 <template>
-  <div class="container blog-shell">
-    <aside class="blog-sidebar">
-      <div class="profile-card">
-        <div class="avatar"></div>
-        <div>
-          <h3>困困鱼</h3>
-          <p>风霜前夕 · 安全研究员</p>
-        </div>
+  <div class="container">
+    <header class="content-header">
+      <div>
+        <span class="eyebrow">最新发布</span>
+        <h2>文章与实践笔记</h2>
+        <p class="post-meta">共 {{ posts.length }} 篇内容，聚焦可复用的技术经验。</p>
       </div>
-      <div class="sidebar-search">
-        <input type="text" placeholder="站内搜索" />
-        <span class="shortcut">Ctrl + K</span>
+      <div class="content-controls">
+        <ThemeToggle/>
+        <RouterLink class="btn btn-ghost" to="/discover">浏览主题</RouterLink>
       </div>
-      <div class="sidebar-icons">
-        <button>专栏</button>
-        <button>文章</button>
-        <button>教程</button>
-        <button>收藏</button>
-      </div>
-      <div class="sidebar-section">
-        <h4>最近更新</h4>
-        <ul>
-          <li v-for="post in recentPosts" :key="post.id">
-            <RouterLink :to="`/post/${post.id}`">{{ post.title }}</RouterLink>
-          </li>
-        </ul>
-      </div>
-    </aside>
+    </header>
 
-    <section class="blog-main">
-      <div class="blog-topbar">
-        <div class="tabs">
-          <button class="active">近期发布</button>
-          <button>分类</button>
-          <button>标签</button>
-          <button>归档</button>
-        </div>
-        <ThemeToggle />
-      </div>
+    <div class="content-shell">
+      <section>
+        <article v-if="featuredPost" class="card fade-up">
+          <span class="eyebrow">编辑推荐</span>
+          <h3 class="section-title">{{ featuredPost.title }}</h3>
+          <p>{{ featuredPost.summary || '这是一篇值得优先阅读的内容。' }}</p>
+          <RouterLink class="btn btn-primary" :to="`/post/${featuredPost.id}`">阅读本篇</RouterLink>
+        </article>
 
-      <div class="feature-banner">
-        <div class="banner-text">
-          <span>资源汇总目录（私有）</span>
-          <h2>从实战到体系化的安全成长路径</h2>
-          <p>整理高频学习地图、工具链与关键案例，适合从 0 到 1 的提升路线。</p>
-        </div>
-      </div>
-
-      <section class="post-list">
-        <PostCard
-          v-for="post in posts"
-          :key="post.id"
-          :post="post"
-          :category="post.category"
-        />
+        <section class="post-list">
+          <PostCard
+              v-for="post in listPosts"
+              :key="post.id"
+              :post="post"
+              :category="post.category"
+          />
+        </section>
       </section>
-    </section>
+
+      <aside class="sidebar">
+        <div class="card">
+          <h4>站内检索</h4>
+          <input class="search-input" type="text" placeholder="输入关键词"/>
+        </div>
+        <div class="card">
+          <h4>分类</h4>
+          <div class="chip-list">
+            <span v-for="cat in categories" :key="cat.id" class="chip">
+              {{ cat.name }}
+            </span>
+          </div>
+        </div>
+        <div class="card">
+          <h4>标签</h4>
+          <div class="chip-list">
+            <span v-for="tag in tags" :key="tag.id" class="chip">
+              {{ tag.name }}
+            </span>
+          </div>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useQuery } from '@vue/apollo-composable'
-import { gql } from '@apollo/client/core'
-import { RouterLink } from 'vue-router'
+import {computed} from 'vue'
+import {useQuery} from '@vue/apollo-composable'
+import {gql} from '@apollo/client/core'
+import {RouterLink} from 'vue-router'
 import PostCard from '../components/PostCard.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
 
-const { result } = useQuery(
-  gql`
-    query Blogs($page: Int!, $size: Int!, $publishedOnly: Boolean) {
-      blogs(page: $page, size: $size, publishedOnly: $publishedOnly) {
-        items {
-          id
-          title
-          summary
-          coverUrl
-          category {
+const {result} = useQuery(
+    gql`
+      query Blogs($page: Int!, $size: Int!, $publishedOnly: Boolean) {
+        blogs(page: $page, size: $size, publishedOnly: $publishedOnly) {
+          items {
             id
-            name
+            title
+            summary
+            coverUrl
+            createdAt
+            author {
+              id
+              username
+              displayName
+            }
+            category {
+              id
+              name
+            }
           }
         }
       }
-    }
-  `,
-  { page: 1, size: 9, publishedOnly: true }
+    `,
+    {page: 1, size: 12, publishedOnly: true}
 )
 
+const {result: metaResult} = useQuery(gql`
+  query Meta {
+    categories {
+      id
+      name
+    }
+    tags {
+      id
+      name
+    }
+  }
+`)
+
 const posts = computed(() => result.value?.blogs?.items ?? [])
-const recentPosts = computed(() => posts.value.slice(0, 6))
+const featuredPost = computed(() => posts.value[0])
+const listPosts = computed(() => (featuredPost.value ? posts.value.slice(1) : posts.value))
+const categories = computed(() => metaResult.value?.categories ?? [])
+const tags = computed(() => metaResult.value?.tags ?? [])
 </script>

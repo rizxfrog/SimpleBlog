@@ -1,9 +1,9 @@
 <template>
   <div class="admin-shell">
     <aside class="admin-sidebar">
-      <div class="admin-brand">Halo</div>
+      <div class="admin-brand">SimpleBlog</div>
       <div class="admin-search">
-        <input type="text" placeholder="搜索" />
+        <input type="text" placeholder="搜索内容" />
         <span>Ctrl + K</span>
       </div>
       <nav class="admin-menu">
@@ -16,7 +16,7 @@
         <div class="avatar"></div>
         <div>
           <strong>Administrator</strong>
-          <span>超级管理员</span>
+          <span>站点管理</span>
         </div>
       </div>
     </aside>

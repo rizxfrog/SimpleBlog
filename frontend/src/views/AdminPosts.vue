@@ -1,16 +1,16 @@
 <template>
-  <AdminShell title="文章" subtitle="管理站点内容与发布状态">
+  <AdminShell title="文章管理" subtitle="维护站点内容与发布状态">
     <template #actions>
       <RouterLink class="btn btn-primary" to="/admin/editor">新建</RouterLink>
     </template>
 
-    <section class="panel admin-panel">
+    <section class="card">
       <div class="table-toolbar">
         <input type="text" placeholder="输入关键词搜索" />
         <div class="table-filters">
-          <button class="ghost-btn">状态：全部</button>
-          <button class="ghost-btn">可见性：全部</button>
-          <button class="ghost-btn">排序：默认</button>
+          <button class="btn btn-soft">状态：全部</button>
+          <button class="btn btn-soft">可见性：全部</button>
+          <button class="btn btn-soft">排序：默认</button>
         </div>
       </div>
       <el-table :data="posts" style="width: 100%; margin-top: 16px;">

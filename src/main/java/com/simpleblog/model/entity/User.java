@@ -4,10 +4,11 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.simpleblog.mapper.typehandler.UserStatusTypeHandler;
 
 import java.time.LocalDateTime;
 
-@TableName("users")
+@TableName(value = "users", autoResultMap = true)
 public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -25,7 +26,11 @@ public class User {
     @TableField("avatar_url")
     private String avatarUrl;
 
-    private String status;
+    @TableField(value = "status", typeHandler = UserStatusTypeHandler.class)
+    private UserStatus status;
+
+    @TableField("role_id")
+    private Long roleId;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
@@ -81,12 +86,20 @@ public class User {
         this.avatarUrl = avatarUrl;
     }
 
-    public String getStatus() {
+    public UserStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(UserStatus status) {
         this.status = status;
+    }
+
+    public Long getRoleId() {
+        return roleId;
+    }
+
+    public void setRoleId(Long roleId) {
+        this.roleId = roleId;
     }
 
     public LocalDateTime getCreatedAt() {

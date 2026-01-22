@@ -44,4 +44,4 @@ No formatter or linter is configured; keep diffs tidy and consistent.
 ## Configuration & Environment
 
 - GraphQL endpoint is configured via `VITE_API_URL` in `src/apollo.ts`.
-- Default fallback is `http://localhost:8080/graphql`; document any env changes.
+- Default fallback is `http://localhost:8888/graphql`; document any env changes.

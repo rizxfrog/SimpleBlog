@@ -35,6 +35,7 @@ dependencies {
     implementation("com.baomidou:mybatis-plus-extension:3.5.16")
     implementation("com.baomidou:mybatis-plus-jsqlparser:3.5.16")
     implementation("org.mybatis:mybatis-spring:3.0.5")
+    compileOnly("org.postgresql:postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
     implementation("com.graphql-java:graphql-java-extended-scalars:22.0")

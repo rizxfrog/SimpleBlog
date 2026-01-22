@@ -1,28 +1,29 @@
 <template>
   <div class="container auth-shell">
-    <section class="auth-card">
+    <section class="auth-card fade-up">
       <div class="auth-header">
-        <h2>后台登录</h2>
-        <p>使用管理员账号进入内容管理后台。</p>
+        <span class="eyebrow">管理员入口</span>
+        <h2>登录后台</h2>
+        <p>使用管理员账号进入内容管理与站点配置。</p>
       </div>
       <el-form label-position="top" @submit.prevent="onSubmit">
         <el-form-item label="用户名">
           <el-input v-model="form.username" placeholder="admin" />
         </el-form-item>
         <el-form-item label="密码">
-          <el-input v-model="form.password" type="password" placeholder="••••••" show-password />
+          <el-input v-model="form.password" type="password" placeholder="••••••••" show-password />
         </el-form-item>
         <el-button type="primary" class="btn btn-primary" @click="onSubmit">登录</el-button>
       </el-form>
       <p v-if="error" class="auth-error">{{ error }}</p>
     </section>
-    <aside class="auth-side">
-      <h3>欢迎回来</h3>
-      <p>查看数据概览、管理文章、维护站点配置，一站式完成运营。</p>
+    <aside class="card card-ghost fade-up">
+      <span class="eyebrow">管理入口说明</span>
+      <h3 class="section-title">你可以在这里做什么？</h3>
       <ul>
-        <li>仪表盘数据看板</li>
-        <li>文章与评论管理</li>
-        <li>主题与外观设置</li>
+        <li>快速创建与发布文章。</li>
+        <li>管理分类、标签与封面素材。</li>
+        <li>查看站点数据与更新提醒。</li>
       </ul>
     </aside>
   </div>

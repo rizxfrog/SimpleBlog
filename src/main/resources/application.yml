@@ -1,5 +1,10 @@
 server:
-  port: 8080
+  servlet:
+    encoding:
+      charset: utf-8
+      enabled: true
+      force: true
+  port: 8888
 
 spring:
   datasource:
@@ -20,6 +25,7 @@ spring:
     time-zone: Asia/Shanghai
 
 mybatis-plus:
+  type-handlers-package: com.simpleblog.mapper.typehandler
   configuration:
     map-underscore-to-camel-case: true
 

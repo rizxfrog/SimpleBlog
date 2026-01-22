@@ -1,15 +1,15 @@
 <template>
   <header class="site-header">
     <div class="container nav">
-      <div class="brand">
-        <div class="brand-mark">✦</div>
-        <span>SimpleBlog</span>
-      </div>
+      <RouterLink class="brand" to="/">
+        <div class="brand-mark">S</div>
+        <span>SimpleBlog Studio</span>
+      </RouterLink>
       <nav class="nav-links">
-        <RouterLink to="/">首页</RouterLink>
-        <RouterLink to="/blog">博客</RouterLink>
-        <RouterLink to="/discover">发现</RouterLink>
-        <RouterLink v-if="auth.isAuthenticated" to="/admin">管理</RouterLink>
+        <RouterLink to="/">主页</RouterLink>
+        <RouterLink to="/blog">文章</RouterLink>
+        <RouterLink to="/discover">主题</RouterLink>
+        <RouterLink v-if="auth.isAuthenticated" to="/admin">后台</RouterLink>
       </nav>
       <div class="nav-actions">
         <RouterLink v-if="!auth.isAuthenticated" class="btn btn-primary" to="/login">登录</RouterLink>

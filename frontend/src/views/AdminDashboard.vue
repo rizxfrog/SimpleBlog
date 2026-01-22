@@ -2,7 +2,7 @@
   <AdminShell title="仪表盘" subtitle="站点运行概览与快捷入口">
     <section class="stats-grid">
       <div class="stat-card">
-        <span>文章</span>
+        <span>文章总数</span>
         <strong>{{ totalPosts }}</strong>
       </div>
       <div class="stat-card">
@@ -14,30 +14,30 @@
         <strong>{{ draftPosts }}</strong>
       </div>
       <div class="stat-card">
-        <span>浏览量</span>
+        <span>总浏览</span>
         <strong>{{ totalViews }}</strong>
       </div>
     </section>
 
     <section class="admin-grid">
-      <div class="panel admin-panel">
-        <h3>快捷访问</h3>
+      <div class="card">
+        <h3 class="section-title">快速入口</h3>
         <div class="quick-grid">
-          <RouterLink to="/admin/editor">创建文章</RouterLink>
+          <RouterLink to="/admin/editor">新建文章</RouterLink>
           <RouterLink to="/admin/posts">管理文章</RouterLink>
-          <RouterLink to="/blog">访问站点</RouterLink>
+          <RouterLink to="/blog">浏览站点</RouterLink>
           <RouterLink to="/admin/settings">系统设置</RouterLink>
         </div>
       </div>
-      <div class="panel admin-panel">
+      <div class="card">
         <div class="panel-header">
-          <h3>通知</h3>
-          <button class="ghost-btn">查看全部</button>
+          <h3 class="section-title">通知</h3>
+          <button class="btn btn-soft">查看全部</button>
         </div>
         <ul class="notice-list">
-          <li>你的 SimpleBlog 站点已连续稳定运行 7 天。</li>
-          <li>最近 24 小时新增 3 篇草稿等待发布。</li>
-          <li>建议更新首页推荐文章，以提升访问量。</li>
+          <li>站点运行稳定，连续在线 7 天。</li>
+          <li>有 3 篇草稿等待完善内容。</li>
+          <li>建议更新首页推荐，提高阅读转化。</li>
         </ul>
       </div>
     </section>

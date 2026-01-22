@@ -1,16 +1,14 @@
-﻿-- PostgreSQL schema for SimpleBlog
+-- PostgreSQL schema for SimpleBlog
 
-create table if not exists users (
-    id bigserial primary key,
-    username varchar(64) not null unique,
-    password_hash varchar(255) not null,
-    display_name varchar(128),
-    email varchar(128),
-    avatar_url varchar(512),
-    status varchar(32) default 'active',
-    created_at timestamp without time zone default now(),
-    updated_at timestamp without time zone default now()
-);
+do $$
+begin
+    if not exists (select 1 from pg_type where typname = 'user_status') then
+        create type user_status as enum ('active', 'disabled', 'pending');
+    end if;
+    if not exists(select 1 from pg_type where typname = 'role_code') then
+        create type role_code as enum ('admin', 'author', 'user');
+    end if;
+end $$;
 
 create table if not exists roles (
     id bigserial primary key,
@@ -24,16 +22,23 @@ create table if not exists permissions (
     name varchar(128) not null
 );
 
-create table if not exists user_roles (
-    user_id bigint not null references users(id) on delete cascade,
-    role_id bigint not null references roles(id) on delete cascade,
-    primary key (user_id, role_id)
-);
-
 create table if not exists role_permissions (
     role_id bigint not null references roles(id) on delete cascade,
     permission_id bigint not null references permissions(id) on delete cascade,
     primary key (role_id, permission_id)
+);
+
+create table if not exists users (
+    id bigserial primary key,
+    username varchar(64) not null unique,
+    password_hash varchar(255) not null,
+    display_name varchar(128),
+    email varchar(128),
+    avatar_url varchar(512),
+    status user_status default 'active',
+    role_id bigint references roles(id),
+    created_at timestamp without time zone default now(),
+    updated_at timestamp without time zone default now()
 );
 
 create table if not exists categories (

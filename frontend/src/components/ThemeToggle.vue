@@ -9,7 +9,7 @@ import { computed } from 'vue'
 import { useUiStore } from '../stores/ui'
 
 const ui = useUiStore()
-const label = computed(() => (ui.theme === 'dark' ? '亮色模式' : '暗色模式'))
+const label = computed(() => (ui.theme === 'dark' ? '切换为浅色' : '切换为深色'))
 
 const toggleTheme = () => {
   ui.toggleTheme()

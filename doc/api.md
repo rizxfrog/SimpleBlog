@@ -3,8 +3,8 @@
 本文档面向前端与接口调用，描述 GraphQL 入口、鉴权方式、数据模型、Query/Mutation 示例与错误处理规范。
 
 ## 1. 基本信息
-- GraphQL 入口：`http://localhost:8080/graphql`
-- GraphiQL：`http://localhost:8080/graphiql`
+- GraphQL 入口：`http://localhost:8888/graphql`
+- GraphiQL：`http://localhost:8888/graphiql`
 - 认证方式：JWT（Header: `Authorization: Bearer <token>`）
 - 编码：UTF-8
 
@@ -220,14 +220,14 @@ mutation CreateTag($name: String!, $slug: String!) {
 
 ### 7.1 登录
 ```bash
-curl -X POST http://localhost:8080/graphql \
+curl -X POST http://localhost:8888/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"mutation($input: LoginInput!){ login(input:$input){ token } }","variables":{"input":{"username":"admin","password":"admin123"}}}'
 ```
 
 ### 7.2 带 token 查询
 ```bash
-curl -X POST http://localhost:8080/graphql \
+curl -X POST http://localhost:8888/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <token>" \
   -d '{"query":"query($page:Int!,$size:Int!){ blogs(page:$page,size:$size){ total } }","variables":{"page":1,"size":10}}'

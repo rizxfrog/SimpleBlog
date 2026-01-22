@@ -1,17 +1,17 @@
 <template>
-  <AdminShell :title="isEdit ? '编辑文章' : '新建文章'" subtitle="Markdown 编辑器">
+  <AdminShell :title="isEdit ? '编辑文章' : '新建文章'" subtitle="Markdown 编辑与预览">
     <template #actions>
       <el-button type="primary" class="btn btn-primary" @click="onSubmit">保存</el-button>
     </template>
 
-    <section class="panel admin-panel editor-panel">
+    <section class="card editor-panel">
       <div class="editor-meta">
         <el-form label-position="top">
           <el-form-item label="标题">
-            <el-input v-model="form.title" />
+            <el-input v-model="form.title" placeholder="文章标题" />
           </el-form-item>
           <el-form-item label="摘要">
-            <el-input v-model="form.summary" type="textarea" rows="2" />
+            <el-input v-model="form.summary" type="textarea" rows="2" placeholder="一句话概括文章内容" />
           </el-form-item>
           <div class="meta-grid">
             <el-form-item label="分类">
@@ -26,7 +26,7 @@
             </el-form-item>
           </div>
           <el-form-item label="封面图">
-            <el-input v-model="form.coverUrl" placeholder="https://" />
+            <el-input v-model="form.coverUrl" placeholder="https://example.com/cover.jpg" />
           </el-form-item>
           <el-form-item label="发布状态">
             <el-switch v-model="form.published" active-text="已发布" inactive-text="草稿" />
@@ -40,14 +40,14 @@
           <button @click="appendSnippet('## 二级标题')">H2</button>
           <button @click="appendSnippet('**加粗文本**')">B</button>
           <button @click="appendSnippet('_斜体文本_')">I</button>
-          <button @click="appendSnippet('> 引用内容')">❝</button>
+          <button @click="appendSnippet('> 引用内容')">Quote</button>
           <button @click="appendSnippet('- 列表项')">List</button>
           <button @click="appendSnippet('```bash\\n\\n```')">Code</button>
           <button @click="appendSnippet('![图片描述](url)')">Img</button>
         </div>
         <div class="editor-split">
-          <textarea v-model="form.content" placeholder="开始编写你的 Markdown 内容..." />
-          <div class="editor-preview" v-html="previewHtml"></div>
+          <textarea v-model="form.content" placeholder="开始写下你的 Markdown 内容..." />
+          <div class="editor-preview markdown" v-html="previewHtml"></div>
         </div>
       </div>
       <p v-if="message" class="status-text">{{ message }}</p>
@@ -81,8 +81,14 @@ const form = reactive({
 
 const { result: metaResult } = useQuery(gql`
   query Meta {
-    categories { id name }
-    tags { id name }
+    categories {
+      id
+      name
+    }
+    tags {
+      id
+      name
+    }
   }
 `)
 
@@ -102,7 +108,9 @@ const { result: blogResult } = useQuery(
         categoryId
         coverUrl
         published
-        tags { id }
+        tags {
+          id
+        }
       }
     }
   `,
@@ -129,13 +137,17 @@ const previewHtml = computed(() => (form.content ? marked.parse(form.content) : 
 
 const { mutate: createBlog } = useMutation(gql`
   mutation CreateBlog($input: BlogInput!) {
-    createBlog(input: $input) { id }
+    createBlog(input: $input) {
+      id
+    }
   }
 `)
 
 const { mutate: updateBlog } = useMutation(gql`
   mutation UpdateBlog($id: ID!, $input: BlogInput!) {
-    updateBlog(id: $id, input: $input) { id }
+    updateBlog(id: $id, input: $input) {
+      id
+    }
   }
 `)
 
