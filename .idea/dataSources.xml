@@ -21,5 +21,13 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/simple_blog</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="jdbc:postgresql://localhost:5432/simple_blog [DEBUG]" group="​SimpleBlogApplication" uuid="25309980-0ae8-425d-97fe-049c3958139c">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <imported>true</imported>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/simple_blog</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
