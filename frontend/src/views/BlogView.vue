@@ -3,7 +3,7 @@
     <div v-if="post" class="blog-shell">
       <section class="blog-article">
         <div class="article-hero">
-          <span class="eyebrow">文章详情</span>
+          <span class="eyebrow">Article</span>
           <h1>{{ post.title }}</h1>
           <div class="article-meta">
             <span>{{ authorName }}</span>
@@ -22,8 +22,8 @@
         </div>
       </section>
 
-      <aside v-if="tocItems.length" class="article-toc card">
-        <h4>目录</h4>
+      <aside v-if="showToc" class="article-toc card">
+        <h4>Contents</h4>
         <nav class="toc-list" aria-label="Article table of contents">
           <button
             v-for="item in tocItems"
@@ -33,17 +33,18 @@
             :class="[`level-${item.level}`, { active: item.id === activeHeadingId }]"
             @click="scrollToHeading(item.id)"
           >
-            {{ item.text }}
+            <span class="toc-dot" aria-hidden="true"></span>
+            <span class="toc-text">{{ item.text }}</span>
           </button>
         </nav>
       </aside>
     </div>
 
     <section class="card" style="margin-top: 24px;" v-if="comments.length">
-      <h3 class="section-title">评论</h3>
+      <h3 class="section-title">Comments</h3>
       <div class="comment-list">
         <div v-for="comment in comments" :key="comment.id" class="comment-item">
-          <strong>{{ comment.user?.displayName || comment.user?.username || '访客' }}</strong>
+          <strong>{{ comment.user?.displayName || comment.user?.username || 'Guest' }}</strong>
           <p>{{ comment.content }}</p>
         </div>
       </div>
@@ -114,8 +115,19 @@ const tocItems = ref<TocItem[]>([])
 const activeHeadingId = ref('')
 let headingObserver: IntersectionObserver | null = null
 
+const TOC_MIN_HEADINGS = 4
+const TOC_MIN_CONTENT_LENGTH = 1200
+
+const showToc = computed(() => {
+  const headingCount = tocItems.value.length
+  if (headingCount < 2) return false
+  if (headingCount >= TOC_MIN_HEADINGS) return true
+  const contentLength = post.value?.content?.length ?? 0
+  return contentLength >= TOC_MIN_CONTENT_LENGTH
+})
+
 const authorName = computed(() => {
-  return post.value?.author?.displayName || post.value?.author?.username || '匿名作者'
+  return post.value?.author?.displayName || post.value?.author?.username || 'Anonymous'
 })
 
 const formattedDate = computed(() => {
