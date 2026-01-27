@@ -1,3 +1,5 @@
+@import "highlight.js/styles/github-dark.css";
+
 :root {
   color-scheme: light;
   font-family: system-ui, "Microsoft Yahei", "Segoe UI", Arial, sans-serif;
@@ -580,6 +582,10 @@ main {
   background: none;
   padding: 0;
   color: var(--text);
+}
+
+.markdown pre code.hljs {
+  background: none;
 }
 
 .markdown hr {

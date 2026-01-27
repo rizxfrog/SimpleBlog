@@ -17,7 +17,7 @@
         <div class="chip-list" v-if="post.tags?.length">
           <span v-for="tag in post.tags" :key="tag.id" class="chip">{{ tag.name }}</span>
         </div>
-        <div class="markdown" v-html="html"></div>
+        <div class="markdown" ref="markdownEl" v-html="html"></div>
       </div>
     </section>
 
@@ -34,11 +34,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuery } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import { marked } from 'marked'
+import hljs from 'highlight.js'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -84,6 +85,7 @@ const { result } = useQuery(
 const post = computed(() => result.value?.blog)
 const comments = computed(() => result.value?.comments ?? [])
 const html = computed(() => (post.value?.content ? marked.parse(post.value.content) : ''))
+const markdownEl = ref<HTMLElement | null>(null)
 
 const authorName = computed(() => {
   return post.value?.author?.displayName || post.value?.author?.username || '匿名作者'
@@ -96,4 +98,20 @@ const formattedDate = computed(() => {
 const coverStyle = computed(() => ({
   backgroundImage: `url(${post.value?.coverUrl})`
 }))
+
+const highlightBlocks = async () => {
+  await nextTick()
+  const blocks = markdownEl.value?.querySelectorAll('pre code') ?? []
+  blocks.forEach((block) => {
+    hljs.highlightElement(block as HTMLElement)
+  })
+}
+
+watch(html, () => {
+  highlightBlocks()
+})
+
+onMounted(() => {
+  highlightBlocks()
+})
 </script>
