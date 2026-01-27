@@ -1,25 +1,43 @@
 <template>
   <div class="container">
-    <section v-if="post" class="blog-article">
-      <div class="article-hero">
-        <span class="eyebrow">文章详情</span>
-        <h1>{{ post.title }}</h1>
-        <div class="article-meta">
-          <span>{{ authorName }}</span>
-          <span v-if="formattedDate">· {{ formattedDate }}</span>
-          <span v-if="post.category">· {{ post.category.name }}</span>
+    <div v-if="post" class="blog-shell">
+      <section class="blog-article">
+        <div class="article-hero">
+          <span class="eyebrow">文章详情</span>
+          <h1>{{ post.title }}</h1>
+          <div class="article-meta">
+            <span>{{ authorName }}</span>
+            <span v-if="formattedDate">· {{ formattedDate }}</span>
+            <span v-if="post.category">· {{ post.category.name }}</span>
+          </div>
         </div>
-      </div>
 
-      <div v-if="post.coverUrl" class="article-cover" :style="coverStyle"></div>
+        <div v-if="post.coverUrl" class="article-cover" :style="coverStyle"></div>
 
-      <div class="article-body">
-        <div class="chip-list" v-if="post.tags?.length">
-          <span v-for="tag in post.tags" :key="tag.id" class="chip">{{ tag.name }}</span>
+        <div class="article-body">
+          <div class="chip-list" v-if="post.tags?.length">
+            <span v-for="tag in post.tags" :key="tag.id" class="chip">{{ tag.name }}</span>
+          </div>
+          <div class="markdown" ref="markdownEl" v-html="html"></div>
         </div>
-        <div class="markdown" ref="markdownEl" v-html="html"></div>
-      </div>
-    </section>
+      </section>
+
+      <aside v-if="tocItems.length" class="article-toc card">
+        <h4>目录</h4>
+        <nav class="toc-list" aria-label="Article table of contents">
+          <button
+            v-for="item in tocItems"
+            :key="item.id"
+            type="button"
+            class="toc-link"
+            :class="[`level-${item.level}`, { active: item.id === activeHeadingId }]"
+            @click="scrollToHeading(item.id)"
+          >
+            {{ item.text }}
+          </button>
+        </nav>
+      </aside>
+    </div>
 
     <section class="card" style="margin-top: 24px;" v-if="comments.length">
       <h3 class="section-title">评论</h3>
@@ -34,13 +52,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuery } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
-import { marked } from 'marked'
+import { marked, type Tokens } from 'marked'
 import hljs from 'highlight.js'
 import dayjs from 'dayjs'
+
+type TocItem = {
+  id: string
+  text: string
+  level: number
+}
 
 const route = useRoute()
 const postId = Number(route.params.id)
@@ -84,8 +108,11 @@ const { result } = useQuery(
 
 const post = computed(() => result.value?.blog)
 const comments = computed(() => result.value?.comments ?? [])
-const html = computed(() => (post.value?.content ? marked.parse(post.value.content) : ''))
+const html = ref('')
 const markdownEl = ref<HTMLElement | null>(null)
+const tocItems = ref<TocItem[]>([])
+const activeHeadingId = ref('')
+let headingObserver: IntersectionObserver | null = null
 
 const authorName = computed(() => {
   return post.value?.author?.displayName || post.value?.author?.username || '匿名作者'
@@ -99,6 +126,53 @@ const coverStyle = computed(() => ({
   backgroundImage: `url(${post.value?.coverUrl})`
 }))
 
+const slugify = (value: string) => {
+  const normalized = value
+    .replace(/<[^>]+>/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u0000-\u001f]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+  return normalized || 'section'
+}
+
+const disconnectObserver = () => {
+  if (headingObserver) {
+    headingObserver.disconnect()
+    headingObserver = null
+  }
+}
+
+const setupHeadingObserver = () => {
+  disconnectObserver()
+  const root = markdownEl.value
+  if (!root) return
+
+  const headings = Array.from(root.querySelectorAll<HTMLElement>('h2[id], h3[id], h4[id]'))
+  if (!headings.length) return
+
+  headingObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (visible[0]?.target) {
+        activeHeadingId.value = (visible[0].target as HTMLElement).id
+      }
+    },
+    {
+      root: null,
+      rootMargin: '-96px 0px -70% 0px',
+      threshold: [0, 1]
+    }
+  )
+
+  headings.forEach((heading) => headingObserver?.observe(heading))
+  activeHeadingId.value = headings[0].id
+}
+
 const highlightBlocks = async () => {
   await nextTick()
   const blocks = markdownEl.value?.querySelectorAll('pre code') ?? []
@@ -107,11 +181,64 @@ const highlightBlocks = async () => {
   })
 }
 
-watch(html, () => {
-  highlightBlocks()
-})
+const renderMarkdown = async (content: string | undefined) => {
+  if (!content) {
+    html.value = ''
+    tocItems.value = []
+    activeHeadingId.value = ''
+    disconnectObserver()
+    return
+  }
+
+  const renderer = new marked.Renderer()
+  const slugCounts = new Map<string, number>()
+  const nextToc: TocItem[] = []
+
+  renderer.heading = (token: Tokens.Heading) => {
+    const level = token.depth
+    const plainText = token.text
+    const headingHtml = marked.parseInline(token.text) as string
+    const base = slugify(plainText)
+    const count = (slugCounts.get(base) ?? 0) + 1
+    slugCounts.set(base, count)
+    const id = count === 1 ? base : `${base}-${count}`
+
+    if (level >= 2 && level <= 4) {
+      nextToc.push({ id, text: plainText, level })
+    }
+
+    return `<h${level} id="${id}">${headingHtml}</h${level}>`
+  }
+
+  html.value = marked.parse(content, { renderer }) as string
+  tocItems.value = nextToc
+
+  await nextTick()
+  await highlightBlocks()
+  setupHeadingObserver()
+}
+
+const scrollToHeading = (id: string) => {
+  const selector = `#${CSS.escape(id)}`
+  const target = markdownEl.value?.querySelector<HTMLElement>(selector)
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  activeHeadingId.value = id
+}
+
+watch(
+  () => post.value?.content,
+  (content) => {
+    renderMarkdown(content)
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
-  highlightBlocks()
+  setupHeadingObserver()
+})
+
+onBeforeUnmount(() => {
+  disconnectObserver()
 })
 </script>
