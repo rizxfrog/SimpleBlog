@@ -1,5 +1,6 @@
 <template>
-  <div class="admin-shell">
+  <n-config-provider :theme="naiveTheme">
+    <div class="admin-shell">
     <aside class="admin-sidebar">
       <RouterLink class="admin-brand" to="/">SimpleBlog</RouterLink>
       <div class="admin-search">
@@ -35,11 +36,31 @@
         <slot />
       </div>
     </section>
-  </div>
+    </div>
+  </n-config-provider>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { darkTheme } from 'naive-ui'
+import { useUiStore } from '@/stores/ui'
 
 defineProps<{ title: string; subtitle?: string }>()
+
+const ui = useUiStore()
+
+const naiveTheme = computed(() => {
+  if (ui.theme === 'dark') {
+    return darkTheme
+  }
+  if (ui.theme === 'system') {
+    const prefersDark =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+    return prefersDark ? darkTheme : null
+  }
+  return null
+})
 </script>
