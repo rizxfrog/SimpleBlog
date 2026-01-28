@@ -1,7 +1,7 @@
 <template>
   <div class="admin-shell">
     <aside class="admin-sidebar">
-      <div class="admin-brand">SimpleBlog</div>
+      <RouterLink class="admin-brand" to="/">SimpleBlog</RouterLink>
       <div class="admin-search">
         <input type="text" placeholder="搜索内容" />
         <span>Ctrl + K</span>
