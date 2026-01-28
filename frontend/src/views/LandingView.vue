@@ -1,15 +1,15 @@
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
     <div class="landing container">
-    <section class="hero-grid">
-      <div class="hero-copy">
-        <n-text depth="3" class="eyebrow">SimpleBlog · GraphQL</n-text>
-        <n-h1 class="hero-title">SimpleBlog</n-h1>
-        <n-p depth="2" class="hero-description">
+      <section class="hero-grid">
+        <div class="hero-copy">
+          <n-text depth="3" class="eyebrow">SimpleBlog · GraphQL</n-text>
+          <n-h1 class="hero-title">SimpleBlog</n-h1>
+          <n-p depth="2" class="hero-description">
           专注 Java、Go、Python 编程语言与计算机基础、计算机网络，分享技术干货
         </n-p>
 
-        <n-space class="hero-actions" size="large">
+          <n-space class="hero-actions" size="large">
           <n-button type="primary" size="large" round @click="router.push('/blog')">
             开始阅读
           </n-button>
@@ -18,7 +18,7 @@
           </n-button>
         </n-space>
 
-        <n-grid :x-gap="24" :cols="3" class="hero-metrics">
+          <n-grid :x-gap="24" :cols="3" class="hero-metrics">
           <n-gi>
             <n-statistic label="精选文章">
               <span class="metric-value">120+</span>
@@ -35,11 +35,21 @@
             </n-statistic>
           </n-gi>
         </n-grid>
-      </div>
+        </div>
 
-      <div class="hero-panel">
-        <n-card title="主题地图" hoverable class="topic-card">
-          <n-space wrap>
+        <div class="hero-panel">
+          <div class="mac-window">
+            <div class="mac-bar">
+              <div class="mac-dots">
+                <span class="dot dot-close"></span>
+                <span class="dot dot-min"></span>
+                <span class="dot dot-max"></span>
+              </div>
+              <span class="mac-title">主题地图</span>
+            </div>
+            <div class="mac-body">
+              <n-card hoverable class="topic-card">
+                <n-space wrap>
             <n-button
                 v-for="item in topics"
                 :key="item.label"
@@ -52,8 +62,10 @@
             </n-button>
           </n-space>
         </n-card>
-      </div>
-    </section>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </n-config-provider>
 </template>
@@ -131,6 +143,80 @@ const topics = [
 <style scoped>
 .landing {
   padding: 60px 0;
+}
+
+.mac-window {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 22px 50px rgba(6, 12, 18, 0.18);
+  backdrop-filter: blur(12px);
+}
+
+.mac-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(250, 252, 255, 0.85);
+  border-bottom: 1px solid rgba(120, 140, 160, 0.2);
+}
+
+.mac-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.dot-close {
+  background: #ff5f57;
+}
+
+.dot-min {
+  background: #febc2e;
+}
+
+.dot-max {
+  background: #28c840;
+}
+
+.mac-title {
+  font-size: 0.85rem;
+  color: rgba(16, 20, 26, 0.6);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.mac-body {
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+:global([data-theme="dark"]) .mac-window {
+  background: rgba(12, 16, 20, 0.55);
+  border-color: rgba(120, 170, 190, 0.2);
+  box-shadow: 0 30px 70px rgba(6, 12, 18, 0.45);
+}
+
+:global([data-theme="dark"]) .mac-bar {
+  background: rgba(9, 14, 20, 0.75);
+  border-bottom-color: rgba(120, 170, 190, 0.18);
+}
+
+:global([data-theme="dark"]) .mac-title {
+  color: rgba(220, 240, 245, 0.7);
+}
+
+:global([data-theme="dark"]) .mac-body {
+  background: rgba(9, 12, 16, 0.4);
 }
 
 .hero-grid {
