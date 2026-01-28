@@ -23,6 +23,10 @@ spring:
       locations: classpath:graphql/
   jackson:
     time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
 
 mybatis-plus:
   type-handlers-package: com.simpleblog.mapper.typehandler
@@ -38,3 +42,11 @@ app:
     username: admin
     password: admin123
     display-name: Admin
+  storage:
+    endpoint: ${RUSTFS_ENDPOINT:http://localhost:9000}
+    access-key: ${RUSTFS_ACCESS_KEY:rustfsadmin}
+    secret-key: ${RUSTFS_SECRET_KEY:rustfsadmin_YFSt4t}
+    bucket: ${RUSTFS_BUCKET:simpleblog}
+    region: ${RUSTFS_REGION:us-east-1}
+    public-url: ${RUSTFS_PUBLIC_URL:http://localhost:9000/simpleblog}
+    path-style-access: ${RUSTFS_PATH_STYLE:true}

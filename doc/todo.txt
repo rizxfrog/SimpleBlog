@@ -1,0 +1,5 @@
+完善http://localhost:5173/blog 页面的"站内检索"搜索功能：
+	前端还是使用GraphQL对接。
+	在 src\main\java\com\simpleblog\graphql 添加一个搜索的controller类，并添加对应的service、mapper等。
+	使用PostgreSQL的倒排索引搜索，要支持中文分词，搜索结果要高亮。
+	需要修改数据库Schema的SQL语句添加到 doc\schema.sql 末尾
