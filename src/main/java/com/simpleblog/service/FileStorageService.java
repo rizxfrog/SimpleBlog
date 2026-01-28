@@ -44,7 +44,7 @@ public class FileStorageService {
         }
 
         ensureBucket();
-        String objectKey = buildObjectKey(file.getOriginalFilename(), context);
+        String objectKey = buildObjectKey(file.getOriginalFilename(), context, contentType);
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(properties.getBucket())
@@ -90,11 +90,12 @@ public class FileStorageService {
         }
     }
 
-    private String buildObjectKey(String originalName, UploadContext context) {
+    private String buildObjectKey(String originalName, UploadContext context, String contentType) {
         String datePath = LocalDate.now().toString();
         String userSegment = sanitizeSegment(context.username() == null ? "anonymous" : context.username());
         String categorySegment = sanitizeSegment(context.category() == null ? "uncategorized" : context.category());
         String blogSegment = context.blogId() == null ? null : "post-" + context.blogId();
+        String kindSegment = resolveKindSegment(contentType);
         String extension = "";
         if (originalName != null) {
             int dotIndex = originalName.lastIndexOf('.');
@@ -105,6 +106,7 @@ public class FileStorageService {
         StringBuilder key = new StringBuilder("uploads/");
         key.append(userSegment).append("/");
         key.append(categorySegment).append("/");
+        key.append(kindSegment).append("/");
         if (blogSegment != null) {
             key.append(blogSegment).append("/");
         }
@@ -141,6 +143,19 @@ public class FileStorageService {
                 .replaceAll("-{2,}", "-")
                 .replaceAll("^-|-$", "");
         return normalized.isBlank() ? "misc" : normalized;
+    }
+
+    private String resolveKindSegment(String contentType) {
+        if (contentType == null) {
+            return "files";
+        }
+        if (contentType.startsWith("image/")) {
+            return "images";
+        }
+        if (contentType.startsWith("video/")) {
+            return "videos";
+        }
+        return "files";
     }
 
     public record UploadResult(String url, String name, String contentType, long sizeBytes) {

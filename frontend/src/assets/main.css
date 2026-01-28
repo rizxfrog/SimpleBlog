@@ -1008,6 +1008,60 @@ main {
   padding: 6px 10px;
 }
 
+.upload-queue {
+  display: grid;
+  gap: 12px;
+}
+
+.upload-item {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.upload-preview {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-strong);
+  display: grid;
+  place-items: center;
+}
+
+.upload-preview img,
+.upload-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.upload-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--block);
+  overflow: hidden;
+}
+
+.upload-progress span {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: linear-gradient(135deg, var(--theme), var(--accent));
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
 .editor-split {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

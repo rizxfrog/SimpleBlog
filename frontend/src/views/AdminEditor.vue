@@ -68,11 +68,40 @@
           />
           <div class="editor-preview markdown" v-html="previewHtml"></div>
         </div>
+        <div v-if="uploads.length" class="upload-queue">
+          <div v-for="item in uploads" :key="item.id" class="upload-item">
+            <div class="upload-preview">
+              <img v-if="item.kind === 'image'" :src="item.previewUrl" :alt="item.name" />
+              <video v-else :src="item.previewUrl" muted></video>
+            </div>
+            <div class="upload-meta">
+              <strong>{{ item.name }}</strong>
+              <div class="upload-progress">
+                <span :style="{ width: `${item.progress}%` }"></span>
+              </div>
+              <small>{{ item.progress }}%</small>
+            </div>
+          </div>
+        </div>
       </div>
       <p v-if="message" class="status-text">{{ message }}</p>
     </section>
-    <input ref="imageInputRef" type="file" accept="image/*" class="file-input-hidden" @change="onFileChange('image', $event)" />
-    <input ref="videoInputRef" type="file" accept="video/*" class="file-input-hidden" @change="onFileChange('video', $event)" />
+    <input
+      ref="imageInputRef"
+      type="file"
+      accept="image/*"
+      multiple
+      class="file-input-hidden"
+      @change="onFileChange($event)"
+    />
+    <input
+      ref="videoInputRef"
+      type="file"
+      accept="video/*"
+      multiple
+      class="file-input-hidden"
+      @change="onFileChange($event)"
+    />
   </AdminShell>
 </template>
 
@@ -93,6 +122,14 @@ const editorRef = ref<HTMLTextAreaElement | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
+const uploads = ref<Array<{
+  id: string
+  name: string
+  kind: 'image' | 'video'
+  progress: number
+  previewUrl: string
+  done: boolean
+}>>([])
 
 const form = reactive({
   title: '',
@@ -203,42 +240,63 @@ const triggerUpload = (kind: 'image' | 'video') => {
   input?.click()
 }
 
-const onFileChange = async (kind: 'image' | 'video', event: Event) => {
+const onFileChange = async (event: Event) => {
   const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
+  const files = input.files ? Array.from(input.files) : []
+  if (!files.length) return
   input.value = ''
-  await handleUpload(file, kind)
+  await handleUploads(files)
 }
 
 const onPaste = async (event: ClipboardEvent) => {
   const items = event.clipboardData?.items
   if (!items) return
-  const fileItem = Array.from(items).find((item) => item.kind === 'file')
-  if (!fileItem) return
-  const file = fileItem.getAsFile()
-  if (!file) return
-  const isImage = file.type.startsWith('image/')
-  const isVideo = file.type.startsWith('video/')
-  if (!isImage && !isVideo) return
+  const files = Array.from(items)
+    .filter((item) => item.kind === 'file')
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+  const mediaFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'))
+  if (!mediaFiles.length) return
   event.preventDefault()
-  await handleUpload(file, isImage ? 'image' : 'video')
+  await handleUploads(mediaFiles)
 }
 
 const onDrop = async (event: DragEvent) => {
-  const file = event.dataTransfer?.files?.[0]
-  if (!file) return
-  const isImage = file.type.startsWith('image/')
-  const isVideo = file.type.startsWith('video/')
-  if (!isImage && !isVideo) return
+  const files = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : []
+  const mediaFiles = files.filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/'))
+  if (!mediaFiles.length) return
   event.preventDefault()
-  await handleUpload(file, isImage ? 'image' : 'video')
+  await handleUploads(mediaFiles)
+}
+
+const handleUploads = async (files: File[]) => {
+  for (const file of files) {
+    const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/')
+    if (!isImage && !isVideo) {
+      continue
+    }
+    await handleUpload(file, isImage ? 'image' : 'video')
+  }
 }
 
 const handleUpload = async (file: File, kind: 'image' | 'video') => {
   if (isUploading.value) return
   isUploading.value = true
   message.value = '正在上传...'
+  const uploadId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const previewUrl = URL.createObjectURL(file)
+  uploads.value = [
+    {
+      id: uploadId,
+      name: file.name,
+      kind,
+      progress: 0,
+      previewUrl,
+      done: false
+    },
+    ...uploads.value
+  ]
   try {
     const uploadUrl = buildUploadUrl()
     const token = localStorage.getItem('simpleblog_token')
@@ -250,25 +308,69 @@ const handleUpload = async (file: File, kind: 'image' | 'video') => {
     if (blogId.value) {
       formData.append('blogId', String(blogId.value))
     }
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: token ? `Bearer ${token}` : ''
-      },
-      body: formData
+    const data = await uploadWithProgress(uploadUrl, formData, token, (progress) => {
+      updateUploadProgress(uploadId, progress)
     })
-    const data = await response.json()
-    if (!response.ok) {
-      throw new Error(data?.message || 'Upload failed')
-    }
     const snippet = buildMediaSnippet(data)
     insertAtCursor(snippet)
     message.value = kind === 'image' ? '图片已插入' : '视频已插入'
+    markUploadDone(uploadId)
   } catch (error: any) {
     message.value = error?.message || '上传失败'
+    markUploadDone(uploadId, true)
   } finally {
     isUploading.value = false
   }
+}
+
+const uploadWithProgress = (
+  url: string,
+  formData: FormData,
+  token: string | null,
+  onProgress: (progress: number) => void
+) => {
+  return new Promise<{ url: string; name?: string; contentType?: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    }
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return
+      const percent = Math.round((event.loaded / event.total) * 100)
+      onProgress(percent)
+    }
+    xhr.onerror = () => reject(new Error('Upload failed'))
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText || '{}')
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data)
+        } else {
+          reject(new Error(data?.message || 'Upload failed'))
+        }
+      } catch (error) {
+        reject(error)
+      }
+    }
+    xhr.send(formData)
+  })
+}
+
+const updateUploadProgress = (id: string, progress: number) => {
+  const target = uploads.value.find((item) => item.id === id)
+  if (!target) return
+  target.progress = progress
+}
+
+const markUploadDone = (id: string, failed = false) => {
+  const target = uploads.value.find((item) => item.id === id)
+  if (!target) return
+  target.progress = failed ? target.progress : 100
+  target.done = true
+  setTimeout(() => {
+    URL.revokeObjectURL(target.previewUrl)
+  }, 2000)
 }
 
 const buildUploadUrl = () => {
