@@ -1,7 +1,7 @@
 <template>
   <div>
     <NavBar v-if="showNav" />
-    <main :class="['min-h-screen bg-transparent', { 'main-admin': !showNav }]">
+    <main :class="{ 'main-admin': !showNav }">
       <router-view />
     </main>
   </div>
