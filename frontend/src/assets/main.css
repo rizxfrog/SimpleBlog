@@ -1,5 +1,8 @@
 @import "highlight.js/styles/github-dark.css";
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   color-scheme: light;
@@ -191,13 +194,8 @@ main {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: hsla(0 0% 100% / 0.8);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--line);
-}
-
-[data-theme="dark"] .site-header {
-  background: hsla(210 10% 16% / 0.8);
+  background: transparent;
+  border-bottom: none;
 }
 
 .nav {
@@ -234,12 +232,6 @@ main {
   place-items: center;
   font-size: 1.1rem;
   font-family: var(--font-display);
-}
-
-.nav-links {
-  display: flex;
-  gap: 18px;
-  font-weight: 600;
 }
 
 .nav-actions {
