@@ -4,13 +4,15 @@
       <span v-if="category" class="post-tag">{{ category.name }}</span>
     </div>
     <div class="post-body">
-      <h3>{{ post.title }}</h3>
+      <h3 v-if="titleHighlight" v-html="titleHighlight"></h3>
+      <h3 v-else>{{ post.title }}</h3>
       <div class="post-meta">
         <span>{{ authorName }}</span>
         <span v-if="formattedDate">· {{ formattedDate }}</span>
       </div>
-      <p>{{ post.summary || '暂无摘要，点击查看全文内容。' }}</p>
-      <RouterLink class="post-link" :to="`/post/${post.id}`">继续阅读 →</RouterLink>
+      <p v-if="summaryHighlight" v-html="summaryHighlight"></p>
+      <p v-else>{{ post.summary || 'No summary yet.' }}</p>
+      <RouterLink class="post-link" :to="`/post/${post.id}`">Read more →</RouterLink>
     </div>
   </article>
 </template>
@@ -22,6 +24,9 @@ import dayjs from 'dayjs'
 
 const props = defineProps<{ post: any; category?: any }>()
 
+const titleHighlight = computed(() => props.post?.titleHighlight)
+const summaryHighlight = computed(() => props.post?.summaryHighlight)
+
 const coverStyle = computed(() => {
   const cover = props.post?.coverUrl
   if (cover) {
@@ -31,7 +36,7 @@ const coverStyle = computed(() => {
 })
 
 const authorName = computed(() => {
-  return props.post?.author?.displayName || props.post?.author?.username || '匿名作者'
+  return props.post?.author?.displayName || props.post?.author?.username || 'Anonymous'
 })
 
 const formattedDate = computed(() => {

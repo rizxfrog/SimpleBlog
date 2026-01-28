@@ -6,6 +6,7 @@ import com.simpleblog.mapper.BlogMapper;
 import com.simpleblog.mapper.BlogTagMapper;
 import com.simpleblog.model.dto.BlogInput;
 import com.simpleblog.model.dto.BlogPage;
+import com.simpleblog.model.dto.BlogSearchPage;
 import com.simpleblog.model.entity.Blog;
 import com.simpleblog.model.entity.BlogTag;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,21 @@ public class BlogService {
         return blogMapper.selectById(id);
     }
 
+    public BlogSearchPage searchBlogs(String query, int page, int size) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+
+        if (normalizedQuery.isEmpty()) {
+            return new BlogSearchPage(List.of(), 0, safePage, safeSize, normalizedQuery);
+        }
+
+        long offset = (long) (safePage - 1) * safeSize;
+        List<Blog> items = blogMapper.searchBlogs(normalizedQuery, offset, safeSize);
+        long total = blogMapper.countSearchBlogs(normalizedQuery);
+        return new BlogSearchPage(items, total, safePage, safeSize, normalizedQuery);
+    }
+
     public Blog createBlog(Long authorId, BlogInput input) {
         Blog blog = new Blog();
         blog.setTitle(input.title());
@@ -67,7 +83,7 @@ public class BlogService {
     public Blog updateBlog(Long id, BlogInput input) {
         Blog blog = blogMapper.selectById(id);
         if (blog == null) {
-            throw new IllegalArgumentException("文章不存在");
+            throw new IllegalArgumentException("Blog not found: " + id);
         }
         blog.setTitle(input.title());
         blog.setSummary(input.summary());

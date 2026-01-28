@@ -2,6 +2,7 @@ package com.simpleblog.graphql;
 
 import com.simpleblog.model.dto.BlogInput;
 import com.simpleblog.model.dto.BlogPage;
+import com.simpleblog.model.dto.BlogSearchPage;
 import com.simpleblog.model.dto.CommentInput;
 import com.simpleblog.model.entity.Blog;
 import com.simpleblog.model.entity.Category;
@@ -47,6 +48,11 @@ public class BlogGraphqlController {
     public BlogPage blogs(@Argument int page, @Argument int size, @Argument Boolean publishedOnly) {
         boolean onlyPublished = publishedOnly == null || publishedOnly;
         return blogService.listBlogs(page, size, onlyPublished);
+    }
+
+    @QueryMapping
+    public BlogSearchPage searchBlogs(@Argument String query, @Argument int page, @Argument int size) {
+        return blogService.searchBlogs(query, page, size);
     }
 
     @QueryMapping

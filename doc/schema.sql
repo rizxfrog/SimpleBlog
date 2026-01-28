@@ -100,3 +100,19 @@ create table if not exists configs (
 
 create index if not exists idx_blogs_published_created on blogs(is_published, created_at desc);
 create index if not exists idx_comments_blog on comments(blog_id);
+
+-- Full-text search support (PostgreSQL)
+create extension if not exists pg_trgm;
+
+alter table blogs
+    add column if not exists search_vector tsvector generated always as (
+        setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('simple', coalesce(summary, '')), 'B') ||
+        setweight(to_tsvector('simple', coalesce(content, '')), 'C')
+    ) stored;
+
+create index if not exists idx_blogs_search_vector on blogs using gin (search_vector);
+
+create index if not exists idx_blogs_search_trgm on blogs using gin (
+    (coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')) gin_trgm_ops
+);

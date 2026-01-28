@@ -42,6 +42,15 @@ public class Blog {
     @TableField("updated_at")
     private LocalDateTime updatedAt;
 
+    @TableField(exist = false)
+    private Double rank;
+
+    @TableField(exist = false)
+    private String titleHighlight;
+
+    @TableField(exist = false)
+    private String summaryHighlight;
+
     public Long getId() {
         return id;
     }
@@ -136,5 +145,29 @@ public class Blog {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Double getRank() {
+        return rank;
+    }
+
+    public void setRank(Double rank) {
+        this.rank = rank;
+    }
+
+    public String getTitleHighlight() {
+        return titleHighlight;
+    }
+
+    public void setTitleHighlight(String titleHighlight) {
+        this.titleHighlight = titleHighlight;
+    }
+
+    public String getSummaryHighlight() {
+        return summaryHighlight;
+    }
+
+    public void setSummaryHighlight(String summaryHighlight) {
+        this.summaryHighlight = summaryHighlight;
     }
 }

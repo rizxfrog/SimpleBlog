@@ -85,6 +85,13 @@ a {
   text-decoration: none;
 }
 
+mark {
+  background: var(--theme-a20);
+  color: var(--text);
+  padding: 0 0.18em;
+  border-radius: 4px;
+}
+
 main {
   padding: 32px 0 72px;
 }
