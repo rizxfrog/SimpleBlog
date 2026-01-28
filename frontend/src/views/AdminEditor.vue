@@ -62,6 +62,9 @@
             v-model="form.content"
             placeholder="开始写下你的 Markdown 内容..."
             @paste="onPaste"
+            @drop="onDrop"
+            @dragover.prevent
+            @dragenter.prevent
           />
           <div class="editor-preview markdown" v-html="previewHtml"></div>
         </div>
@@ -222,6 +225,16 @@ const onPaste = async (event: ClipboardEvent) => {
   await handleUpload(file, isImage ? 'image' : 'video')
 }
 
+const onDrop = async (event: DragEvent) => {
+  const file = event.dataTransfer?.files?.[0]
+  if (!file) return
+  const isImage = file.type.startsWith('image/')
+  const isVideo = file.type.startsWith('video/')
+  if (!isImage && !isVideo) return
+  event.preventDefault()
+  await handleUpload(file, isImage ? 'image' : 'video')
+}
+
 const handleUpload = async (file: File, kind: 'image' | 'video') => {
   if (isUploading.value) return
   isUploading.value = true
@@ -231,6 +244,12 @@ const handleUpload = async (file: File, kind: 'image' | 'video') => {
     const token = localStorage.getItem('simpleblog_token')
     const formData = new FormData()
     formData.append('file', file)
+    if (form.categoryId) {
+      formData.append('categoryId', String(form.categoryId))
+    }
+    if (blogId.value) {
+      formData.append('blogId', String(blogId.value))
+    }
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -264,7 +283,7 @@ const buildMediaSnippet = (data: { url: string; name?: string; contentType?: str
     return `![${name}](${data.url})`
   }
   if (contentType.startsWith('video/')) {
-    return `<video controls src="${data.url}"></video>`
+    return `<video controls><source src="${data.url}" type="${contentType}"></video>`
   }
   return `[${name}](${data.url})`
 }

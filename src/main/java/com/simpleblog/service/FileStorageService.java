@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Locale;
 
 @Service
 public class FileStorageService {
@@ -33,7 +34,7 @@ public class FileStorageService {
         this.fileObjectMapper = fileObjectMapper;
     }
 
-    public UploadResult upload(MultipartFile file) throws IOException {
+    public UploadResult upload(MultipartFile file, UploadContext context) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is empty.");
         }
@@ -43,7 +44,7 @@ public class FileStorageService {
         }
 
         ensureBucket();
-        String objectKey = buildObjectKey(file.getOriginalFilename());
+        String objectKey = buildObjectKey(file.getOriginalFilename(), context);
 
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(properties.getBucket())
@@ -89,8 +90,11 @@ public class FileStorageService {
         }
     }
 
-    private String buildObjectKey(String originalName) {
+    private String buildObjectKey(String originalName, UploadContext context) {
         String datePath = LocalDate.now().toString();
+        String userSegment = sanitizeSegment(context.username() == null ? "anonymous" : context.username());
+        String categorySegment = sanitizeSegment(context.category() == null ? "uncategorized" : context.category());
+        String blogSegment = context.blogId() == null ? null : "post-" + context.blogId();
         String extension = "";
         if (originalName != null) {
             int dotIndex = originalName.lastIndexOf('.');
@@ -98,7 +102,14 @@ public class FileStorageService {
                 extension = originalName.substring(dotIndex);
             }
         }
-        return "uploads/" + datePath + "/" + UUID.randomUUID() + extension;
+        StringBuilder key = new StringBuilder("uploads/");
+        key.append(userSegment).append("/");
+        key.append(categorySegment).append("/");
+        if (blogSegment != null) {
+            key.append(blogSegment).append("/");
+        }
+        key.append(datePath).append("/").append(UUID.randomUUID()).append(extension);
+        return key.toString();
     }
 
     private String buildPublicUrl(String objectKey) {
@@ -122,6 +133,19 @@ public class FileStorageService {
         return null;
     }
 
+    private String sanitizeSegment(String value) {
+        String normalized = value
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9\\-_]+", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("^-|-$", "");
+        return normalized.isBlank() ? "misc" : normalized;
+    }
+
     public record UploadResult(String url, String name, String contentType, long sizeBytes) {
+    }
+
+    public record UploadContext(String username, String category, Long blogId) {
     }
 }
