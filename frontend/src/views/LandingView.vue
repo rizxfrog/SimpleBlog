@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="naiveTheme">
+  <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
     <div class="landing container">
     <section class="hero-grid">
       <div class="hero-copy">
@@ -90,6 +90,34 @@ const naiveTheme = computed(() => {
   return null
 })
 
+const naiveThemeOverrides = computed(() => {
+  if (naiveTheme.value !== darkTheme) {
+    return null
+  }
+  return {
+    common: {
+      primaryColor: '#66d9d0',
+      primaryColorHover: '#7fe3da',
+      primaryColorPressed: '#55c6bd',
+      bodyColor: 'transparent',
+      cardColor: 'rgba(16, 24, 34, 0.65)'
+    },
+    Card: {
+      color: 'rgba(16, 24, 34, 0.65)',
+      borderColor: 'rgba(120, 190, 210, 0.16)',
+      boxShadow: '0 18px 40px rgba(6, 12, 18, 0.45)'
+    },
+    Button: {
+      color: 'rgba(18, 32, 40, 0.45)',
+      colorHover: 'rgba(20, 36, 46, 0.6)',
+      colorPressed: 'rgba(14, 28, 36, 0.7)',
+      textColor: '#d7f4f0',
+      textColorHover: '#e7fbf8',
+      textColorPressed: '#bfece6'
+    }
+  }
+})
+
 const topics = [
   { label: 'Java', to: '/discover' },
   { label: 'Go', to: '/discover' },
@@ -143,7 +171,10 @@ const topics = [
 
 /* 暗色主题适配 */
 :global([data-theme="dark"]) .landing {
-  background: linear-gradient(180deg, hsla(210 20% 14% / 0.6), transparent 60%);
+  background:
+    radial-gradient(circle at 18% 10%, hsla(185 70% 55% / 0.18), transparent 45%),
+    radial-gradient(circle at 85% 0%, hsla(210 65% 50% / 0.16), transparent 40%),
+    linear-gradient(180deg, hsla(210 24% 12% / 0.85), transparent 70%);
 }
 
 :global([data-theme="dark"]) .topic-card {
