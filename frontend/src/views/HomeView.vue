@@ -242,3 +242,4 @@ const listPosts = computed(() => {
 const categories = computed(() => metaResult.value?.categories ?? [])
 const tags = computed(() => metaResult.value?.tags ?? [])
 </script>
+
