@@ -129,9 +129,7 @@ public class BlogGraphqlController {
     @SchemaMapping(typeName = "Blog", field = "tags")
     public List<Tag> tags(Blog blog) {
         List<Long> tagIds = blogService.findTagIds(blog.getId());
-        return tagService.listAll().stream()
-                .filter(tag -> tagIds.contains(tag.getId()))
-                .toList();
+        return tagService.listByIds(tagIds);
     }
 
     @SchemaMapping(typeName = "Comment", field = "user")
@@ -142,6 +140,7 @@ public class BlogGraphqlController {
     private User currentUser() {
         return SecurityUtils.currentUsername()
                 .map(userService::findByUsername)
-                .orElseThrow(() -> new IllegalStateException("未登录"));
+                .orElseThrow(() -> new IllegalStateException("User not authenticated."));
     }
 }
+

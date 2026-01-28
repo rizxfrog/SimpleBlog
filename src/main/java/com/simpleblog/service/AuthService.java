@@ -40,7 +40,7 @@ public class AuthService {
     public AuthPayload login(String username, String password) {
         User user = userMapper.findByUsername(username);
         if (user == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new IllegalArgumentException("用户名或密码错误");
+            throw new IllegalArgumentException("Invalid username or password.");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new IllegalArgumentException("User is not active.");
@@ -93,3 +93,5 @@ public class AuthService {
         return new AuthPayload(token, user);
     }
 }
+
+

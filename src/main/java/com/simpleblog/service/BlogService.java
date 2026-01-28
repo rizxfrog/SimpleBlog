@@ -10,12 +10,14 @@ import com.simpleblog.model.dto.BlogSearchPage;
 import com.simpleblog.model.entity.Blog;
 import com.simpleblog.model.entity.BlogTag;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class BlogService {
+    private static final int MAX_PAGE_SIZE = 50;
     private final BlogMapper blogMapper;
     private final BlogTagMapper blogTagMapper;
 
@@ -25,14 +27,16 @@ public class BlogService {
     }
 
     public BlogPage listBlogs(int page, int size, boolean publishedOnly) {
-        Page<Blog> request = Page.of(page, size);
+        int safePage = normalizePage(page);
+        int safeSize = normalizeSize(size);
+        Page<Blog> request = Page.of(safePage, safeSize);
         QueryWrapper<Blog> wrapper = new QueryWrapper<>();
         if (publishedOnly) {
             wrapper.eq("is_published", true);
         }
         wrapper.orderByDesc("created_at");
         Page<Blog> result = blogMapper.selectPage(request, wrapper);
-        return new BlogPage(result.getRecords(), result.getTotal(), page, size);
+        return new BlogPage(result.getRecords(), result.getTotal(), safePage, safeSize);
     }
 
     public Blog findById(Long id) {
@@ -41,8 +45,8 @@ public class BlogService {
 
     public BlogSearchPage searchBlogs(String query, int page, int size) {
         String normalizedQuery = query == null ? "" : query.trim();
-        int safePage = Math.max(page, 1);
-        int safeSize = Math.max(size, 1);
+        int safePage = normalizePage(page);
+        int safeSize = normalizeSize(size);
 
         if (normalizedQuery.isEmpty()) {
             return new BlogSearchPage(List.of(), 0, safePage, safeSize, normalizedQuery);
@@ -54,6 +58,7 @@ public class BlogService {
         return new BlogSearchPage(items, total, safePage, safeSize, normalizedQuery);
     }
 
+    @Transactional
     public Blog createBlog(Long authorId, BlogInput input) {
         Blog blog = new Blog();
         blog.setTitle(input.title());
@@ -80,6 +85,7 @@ public class BlogService {
         return blog;
     }
 
+    @Transactional
     public Blog updateBlog(Long id, BlogInput input) {
         Blog blog = blogMapper.selectById(id);
         if (blog == null) {
@@ -108,6 +114,7 @@ public class BlogService {
         return blog;
     }
 
+    @Transactional
     public boolean deleteBlog(Long id) {
         blogMapper.deleteById(id);
         QueryWrapper<BlogTag> wrapper = new QueryWrapper<>();
@@ -118,5 +125,14 @@ public class BlogService {
 
     public List<Long> findTagIds(Long blogId) {
         return blogTagMapper.findTagIdsByBlogId(blogId);
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(page, 1);
+    }
+
+    private int normalizeSize(int size) {
+        int safeSize = Math.max(size, 1);
+        return Math.min(safeSize, MAX_PAGE_SIZE);
     }
 }
