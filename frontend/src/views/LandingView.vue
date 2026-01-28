@@ -197,26 +197,33 @@ const topics = [
 
 .mac-body {
   padding: 18px;
-  background: rgba(255, 255, 255, 0.45);
+  background: rgb(5, 39, 64);
+}
+.mac-bar {
+  background: rgb(5, 39, 64);
 }
 
 :global([data-theme="dark"]) .mac-window {
-  background: rgba(12, 16, 20, 0.55);
-  border-color: rgba(120, 170, 190, 0.2);
-  box-shadow: 0 30px 70px rgba(6, 12, 18, 0.45);
+  background: rgba(20, 26, 32, 0.95);
+  border-color: rgba(120, 170, 190, 0.22);
+  box-shadow: 0 30px 70px rgba(4, 10, 16, 0.6);
 }
 
 :global([data-theme="dark"]) .mac-bar {
-  background: rgba(9, 14, 20, 0.75);
-  border-bottom-color: rgba(120, 170, 190, 0.18);
+  background: rgba(24, 30, 38, 0.95);
+  border-bottom-color: rgba(120, 170, 190, 0.2);
 }
 
 :global([data-theme="dark"]) .mac-title {
-  color: rgba(220, 240, 245, 0.7);
+  color: rgba(220, 240, 245, 0.78);
 }
 
 :global([data-theme="dark"]) .mac-body {
-  background: rgba(9, 12, 16, 0.4);
+  background: rgba(30, 36, 44, 0.9);
+}
+
+:global([data-theme="dark"]) .mac-window .dot {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .hero-grid {
@@ -264,9 +271,9 @@ const topics = [
 }
 
 :global([data-theme="dark"]) .topic-card {
-  background: var(--panel-strong);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 40px hsla(210 10% 6% / 0.35);
+  background: rgba(42, 50, 58, 0.75);
+  border: 1px solid rgba(120, 170, 190, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 /* 响应式调整 */
