@@ -1,5 +1,6 @@
 <template>
-  <div class="landing container">
+  <n-config-provider :theme="naiveTheme">
+    <div class="landing container">
     <section class="hero-grid">
       <div class="hero-copy">
         <n-text depth="3" class="eyebrow">SimpleBlog · GraphQL</n-text>
@@ -53,13 +54,17 @@
         </n-card>
       </div>
     </section>
-  </div>
+    </div>
+  </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useUiStore } from '@/stores/ui'
 import {
   NButton,
+  NConfigProvider,
   NText,
   NH1,
   NP,
@@ -67,10 +72,23 @@ import {
   NGrid,
   NGi,
   NStatistic,
-  NCard
+  NCard,
+  darkTheme
 } from 'naive-ui'
 
 const router = useRouter()
+const ui = useUiStore()
+
+const naiveTheme = computed(() => {
+  if (ui.theme === 'dark') {
+    return darkTheme
+  }
+  if (ui.theme === 'system') {
+    const prefersDark = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    return prefersDark ? darkTheme : null
+  }
+  return null
+})
 
 const topics = [
   { label: 'Java', to: '/discover' },
@@ -121,6 +139,17 @@ const topics = [
 
 .topic-card {
   border-radius: 16px;
+}
+
+/* 暗色主题适配 */
+:global([data-theme="dark"]) .landing {
+  background: linear-gradient(180deg, hsla(210 20% 14% / 0.6), transparent 60%);
+}
+
+:global([data-theme="dark"]) .topic-card {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px hsla(210 10% 6% / 0.35);
 }
 
 /* 响应式调整 */

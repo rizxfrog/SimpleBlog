@@ -191,13 +191,13 @@ main {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: linear-gradient(180deg, hsla(0 0% 100% / 0.8), hsla(0 0% 100% / 0.35));
+    background: transparent;    /*透明*/
     backdrop-filter: blur(14px);
     border-bottom: none;
 }
 
 [data-theme="dark"] .site-header {
-    background: linear-gradient(180deg, hsla(210 10% 16% / 0.8), hsla(210 10% 16% / 0.35));
+    background: transparent;
 }
 
 .nav {
