@@ -191,13 +191,13 @@ main {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: hsla(0 0% 100% / 0.8);
+    background: linear-gradient(180deg, hsla(0 0% 100% / 0.8), hsla(0 0% 100% / 0.35));
     backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--line);
+    border-bottom: none;
 }
 
 [data-theme="dark"] .site-header {
-    background: hsla(210 10% 16% / 0.8);
+    background: linear-gradient(180deg, hsla(210 10% 16% / 0.8), hsla(210 10% 16% / 0.35));
 }
 
 .nav {
@@ -246,6 +246,20 @@ main {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+.theme-select select {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-strong);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+.theme-select select:focus {
+    outline: 2px solid var(--theme);
+    outline-offset: 2px;
 }
 
 .avatar-chip {

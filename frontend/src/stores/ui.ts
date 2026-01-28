@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 
-type ThemeMode = 'light' | 'dark'
+type ThemeMode = 'light' | 'dark' | 'system'
+
+const canUseSystem = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+const systemQuery = canUseSystem ? window.matchMedia('(prefers-color-scheme: dark)') : null
+let systemListenerAttached = false
+
+const getSystemTheme = () => (systemQuery?.matches ? 'dark' : 'light')
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
@@ -8,8 +14,23 @@ export const useUiStore = defineStore('ui', {
   }),
   actions: {
     applyTheme() {
-      document.documentElement.setAttribute('data-theme', this.theme)
+      const resolvedTheme = this.theme === 'system' ? getSystemTheme() : this.theme
+      document.documentElement.setAttribute('data-theme', resolvedTheme)
       localStorage.setItem('simpleblog_theme', this.theme)
+
+      if (systemQuery && !systemListenerAttached) {
+        const handler = () => {
+          if (this.theme === 'system') {
+            this.applyTheme()
+          }
+        }
+        if ('addEventListener' in systemQuery) {
+          systemQuery.addEventListener('change', handler)
+        } else {
+          systemQuery.addListener(handler)
+        }
+        systemListenerAttached = true
+      }
     },
     setTheme(theme: ThemeMode) {
       this.theme = theme
