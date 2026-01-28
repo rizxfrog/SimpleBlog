@@ -110,7 +110,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMutation, useQuery } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
-import { marked } from 'marked'
+import { marked, type Tokens } from 'marked'
 import AdminShell from '../components/AdminShell.vue'
 
 const route = useRoute()
@@ -197,7 +197,25 @@ watch(
   { immediate: true }
 )
 
-const previewHtml = computed(() => (form.content ? marked.parse(form.content) : ''))
+const previewHtml = computed(() => {
+  if (!form.content) return ''
+  const renderer = new marked.Renderer()
+  renderer.image = (token) => {
+    const src = token.href ?? ''
+    const title = token.title ? ` title="${escapeHtmlAttr(token.title)}"` : ''
+    const alt = token.text ? escapeHtmlAttr(token.text) : 'image'
+    if (isVideoUrl(src)) {
+      return `<video controls preload="metadata"${title}><source src="${escapeHtmlAttr(src)}"></video>`
+    }
+    return `<img src="${escapeHtmlAttr(src)}" alt="${alt}" loading="lazy"${title} />`
+  }
+  renderer.heading = (token: Tokens.Heading) => {
+    const level = token.depth
+    const headingHtml = marked.parseInline(token.text) as string
+    return `<h${level}>${headingHtml}</h${level}>`
+  }
+  return marked.parse(form.content, { renderer }) as string
+})
 
 const { mutate: createBlog } = useMutation(gql`
   mutation CreateBlog($input: BlogInput!) {
@@ -376,6 +394,26 @@ const markUploadDone = (id: string, failed = false) => {
 const buildUploadUrl = () => {
   const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8888/graphql'
   return api.replace(/\/graphql\/?$/, '') + '/api/uploads'
+}
+
+const isVideoUrl = (value: string) => {
+  const clean = value.split('?')[0].split('#')[0].toLowerCase()
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.ogg') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.m4v')
+  )
+}
+
+const escapeHtmlAttr = (value: string) => {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
 }
 
 const buildMediaSnippet = (data: { url: string; name?: string; contentType?: string }) => {
