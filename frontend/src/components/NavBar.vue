@@ -15,18 +15,15 @@
 
       <div class="nav-actions">
         <div class="theme-select-wrapper">
-          <n-select
-              v-model:value="themeMode"
-              :options="themeOptions"
-              size="small"
-              class="theme-picker"
-          />
+          <n-config-provider :theme="naiveTheme">
+            <n-select v-model:value="themeMode" :options="themeOptions" size="small" class="theme-picker"/>
+          </n-config-provider>
         </div>
 
-<!--        <RouterLink v-if="!auth.isAuthenticated" class="btn btn-primary" to="/login">登录</RouterLink>-->
-<!--        <button v-else class="avatar-chip" @click="onLogout">退出</button>-->
+        <!--        <RouterLink v-if="!auth.isAuthenticated" class="btn btn-primary" to="/login">登录</RouterLink>-->
+        <!--        <button v-else class="avatar-chip" @click="onLogout">退出</button>-->
         <n-button v-if="!auth.isAuthenticated" type="primary" round ghost @click="router.push('/login')">登录</n-button>
-        <n-button v-else type="error" round secondary strong @click="onLogout" >退出</n-button>
+        <n-button v-else type="error" round secondary strong @click="onLogout">Logout</n-button>
       </div>
     </div>
   </header>
@@ -35,7 +32,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {RouterLink, useRouter} from 'vue-router'
-import {NSelect} from 'naive-ui'
+import {darkTheme} from 'naive-ui'
 import {useAuthStore} from '@/stores/auth'
 import {useUiStore} from '@/stores/ui'
 
@@ -51,6 +48,17 @@ const themeOptions = [
 const themeMode = computed({
   get: () => ui.theme,
   set: (value) => ui.setTheme(value as 'light' | 'dark' | 'system')
+})
+
+const naiveTheme = computed(() => {
+  if (ui.theme === 'dark') {
+    return darkTheme
+  }
+  if (ui.theme === 'system') {
+    const prefersDark = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    return prefersDark ? darkTheme : null
+  }
+  return null
 })
 
 const onLogout = () => {

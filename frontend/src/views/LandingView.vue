@@ -1,75 +1,135 @@
 <template>
   <div class="landing container">
     <section class="hero-grid">
-      <div class="hero-copy fade-up">
-        <span class="eyebrow">SimpleBlog · GraphQL</span>
-        <h1>SimpleBlog</h1>
-        <p>专注Java、Go、Python编程语言于与计算机基础、计算机网络，分享技术干货</p>
-        <div class="hero-actions">
-          <RouterLink class="btn btn-primary" to="/blog">开始阅读</RouterLink>
-          <RouterLink class="btn btn-ghost" to="/discover">探索</RouterLink>
-        </div>
-        <div class="hero-metrics stagger" style="--i: 0;">
-          <div class="metric-card" style="--i: 1;">
-            <strong>120+</strong>
-            <span>精选文章</span>
-          </div>
-          <div class="metric-card" style="--i: 2;">
-            <strong>18</strong>
-            <span>主题路径</span>
-          </div>
-          <div class="metric-card" style="--i: 3;">
-            <strong>7d</strong>
-            <span>周更新节奏</span>
-          </div>
-        </div>
+      <div class="hero-copy">
+        <n-text depth="3" class="eyebrow">SimpleBlog · GraphQL</n-text>
+        <n-h1 class="hero-title">SimpleBlog</n-h1>
+        <n-p depth="2" class="hero-description">
+          专注 Java、Go、Python 编程语言与计算机基础、计算机网络，分享技术干货
+        </n-p>
+
+        <n-space class="hero-actions" size="large">
+          <n-button type="primary" size="large" round @click="router.push('/blog')">
+            开始阅读
+          </n-button>
+          <n-button size="large" round ghost @click="router.push('/discover')">
+            探索
+          </n-button>
+        </n-space>
+
+        <n-grid :x-gap="24" :cols="3" class="hero-metrics">
+          <n-gi>
+            <n-statistic label="精选文章">
+              <span class="metric-value">120+</span>
+            </n-statistic>
+          </n-gi>
+          <n-gi>
+            <n-statistic label="主题路径">
+              <span class="metric-value">18</span>
+            </n-statistic>
+          </n-gi>
+          <n-gi>
+            <n-statistic label="周更新节奏">
+              <span class="metric-value">7d</span>
+            </n-statistic>
+          </n-gi>
+        </n-grid>
       </div>
+
       <div class="hero-panel">
-        <div class="card fade-up">
-          <h3 class="section-title">主题地图</h3>
-          <div class="topic-grid">
-            <RouterLink v-for="item in topics" :key="item.label" class="topic-item" :to="item.to">
+        <n-card title="主题地图" hoverable class="topic-card">
+          <n-space wrap>
+            <n-button
+                v-for="item in topics"
+                :key="item.label"
+                secondary
+                round
+                type="info"
+                @click="router.push(item.to)"
+            >
               {{ item.label }}
-            </RouterLink>
-          </div>
-        </div>
-        <!--        <div class="card card-ghost fade-up">
-                  <span class="eyebrow">编辑计划</span>
-                  <p>本周聚焦：工程化写作、API 设计与前端体验优化。</p>
-                  <RouterLink class="btn btn-soft" to="/discover">查看内容计划</RouterLink>
-                </div>-->
+            </n-button>
+          </n-space>
+        </n-card>
       </div>
     </section>
-
-    <!--    <section class="landing-grid stagger" style="&#45;&#45;i: 0;">
-          <article class="card" style="&#45;&#45;i: 1;">
-            <span class="eyebrow">精选专题</span>
-            <h3 class="section-title">安全与工程实践</h3>
-            <p>围绕真实项目拆解思路与技术细节，适合进阶阅读。</p>
-          </article>
-          <article class="card" style="&#45;&#45;i: 2;">
-            <span class="eyebrow">工具箱</span>
-            <h3 class="section-title">效率与自动化</h3>
-            <p>整理日常开发必备的脚本、模板与工具链升级方案。</p>
-          </article>
-          <article class="card" style="&#45;&#45;i: 3;">
-            <span class="eyebrow">笔记</span>
-            <h3 class="section-title">长期知识管理</h3>
-            <p>以标签与分类构建个人知识体系，快速定位内容。</p>
-          </article>
-        </section>-->
   </div>
 </template>
 
 <script setup lang="ts">
-import {RouterLink} from 'vue-router'
+import { useRouter } from 'vue-router'
+import {
+  NButton,
+  NText,
+  NH1,
+  NP,
+  NSpace,
+  NGrid,
+  NGi,
+  NStatistic,
+  NCard
+} from 'naive-ui'
+
+const router = useRouter()
 
 const topics = [
-  {label: 'Java', to: '/discover'},
-  {label: 'Go', to: '/discover'},
-  {label: 'Python', to: '/discover'},
-  {label: 'GraphQL', to: '/discover'},
-  {label: '计算机网络', to: '/discover'},
-  {label: '计算机基础', to: '/discover'},
+  { label: 'Java', to: '/discover' },
+  { label: 'Go', to: '/discover' },
+  { label: 'Python', to: '/discover' },
+  { label: 'GraphQL', to: '/discover' },
+  { label: '计算机网络', to: '/discover' },
+  { label: '计算机基础', to: '/discover' },
 ]
 </script>
+
+<style scoped>
+.landing {
+  padding: 60px 0;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  margin: 12px 0;
+  font-weight: 800;
+}
+
+.eyebrow {
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.hero-description {
+  font-size: 1.2rem;
+  margin-bottom: 32px;
+}
+
+.hero-metrics {
+  margin-top: 48px;
+}
+
+.metric-value {
+  font-weight: 700;
+}
+
+.topic-card {
+  border-radius: 16px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-title {
+    font-size: 2.5rem;
+  }
+}
+</style>
