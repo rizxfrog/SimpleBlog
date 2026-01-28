@@ -206,6 +206,16 @@ const renderMarkdown = async (content: string | undefined) => {
   const slugCounts = new Map<string, number>()
   const nextToc: TocItem[] = []
 
+  renderer.image = (token) => {
+    const src = token.href ?? ''
+    const title = token.title ? ` title="${escapeHtmlAttr(token.title)}"` : ''
+    const alt = token.text ? escapeHtmlAttr(token.text) : 'image'
+    if (isVideoUrl(src)) {
+      return `<video controls preload="metadata"${title}><source src="${escapeHtmlAttr(src)}"></video>`
+    }
+    return `<img src="${escapeHtmlAttr(src)}" alt="${alt}" loading="lazy"${title} />`
+  }
+
   renderer.heading = (token: Tokens.Heading) => {
     const level = token.depth
     const plainText = token.text
@@ -228,6 +238,26 @@ const renderMarkdown = async (content: string | undefined) => {
   await nextTick()
   await highlightBlocks()
   setupHeadingObserver()
+}
+
+const isVideoUrl = (value: string) => {
+  const clean = value.split('?')[0].split('#')[0].toLowerCase()
+  return (
+    clean.endsWith('.mp4') ||
+    clean.endsWith('.webm') ||
+    clean.endsWith('.ogg') ||
+    clean.endsWith('.mov') ||
+    clean.endsWith('.m4v')
+  )
+}
+
+const escapeHtmlAttr = (value: string) => {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
 }
 
 const scrollToHeading = (id: string) => {
