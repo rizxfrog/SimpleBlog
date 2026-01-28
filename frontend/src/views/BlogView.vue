@@ -114,6 +114,7 @@ const markdownEl = ref<HTMLElement | null>(null)
 const tocItems = ref<TocItem[]>([])
 const activeHeadingId = ref('')
 let headingObserver: IntersectionObserver | null = null
+let signTimer: number | null = null
 
 const TOC_MIN_HEADINGS = 4
 const TOC_MIN_CONTENT_LENGTH = 1200
@@ -236,6 +237,7 @@ const renderMarkdown = async (content: string | undefined) => {
   tocItems.value = nextToc
 
   await nextTick()
+  scheduleSignMedia()
   await highlightBlocks()
   setupHeadingObserver()
 }
@@ -260,6 +262,59 @@ const escapeHtmlAttr = (value: string) => {
     .replaceAll('>', '&gt;')
 }
 
+const scheduleSignMedia = () => {
+  if (signTimer) {
+    window.clearTimeout(signTimer)
+  }
+  signTimer = window.setTimeout(() => {
+    signMediaSources()
+  }, 120)
+}
+
+const signMediaSources = async () => {
+  const root = markdownEl.value
+  if (!root) return
+  const targets = Array.from(root.querySelectorAll<HTMLImageElement | HTMLSourceElement>('img, video source'))
+  const urls = Array.from(
+    new Set(
+      targets
+        .map((node) => node.getAttribute('src'))
+        .filter((value): value is string => Boolean(value))
+    )
+  )
+  if (!urls.length) return
+  try {
+    const signedUrls = await fetchSignedUrls(urls)
+    if (!signedUrls) return
+    targets.forEach((node) => {
+      const src = node.getAttribute('src')
+      if (!src) return
+      const signed = signedUrls[src]
+      if (!signed) return
+      node.setAttribute('src', signed)
+      if (node instanceof HTMLSourceElement) {
+        const parent = node.parentElement as HTMLVideoElement | null
+        parent?.load()
+      }
+    })
+  } catch {
+    // ignore signing failures to avoid breaking render
+  }
+}
+
+const fetchSignedUrls = async (urls: string[]) => {
+  const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8888/graphql'
+  const signUrl = api.replace(/\/graphql\/?$/, '') + '/api/media/sign'
+  const response = await fetch(signUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls })
+  })
+  if (!response.ok) return null
+  const data = await response.json()
+  return data?.signedUrls as Record<string, string> | null
+}
+
 const scrollToHeading = (id: string) => {
   const selector = `#${CSS.escape(id)}`
   const target = markdownEl.value?.querySelector<HTMLElement>(selector)
@@ -281,6 +336,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (signTimer) {
+    window.clearTimeout(signTimer)
+    signTimer = null
+  }
   disconnectObserver()
 })
 </script>

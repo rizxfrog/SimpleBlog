@@ -12,9 +12,13 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.io.IOException;
 import java.net.URLConnection;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,12 +28,19 @@ import java.util.Locale;
 @Service
 public class FileStorageService {
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final StorageProperties properties;
     private final FileObjectMapper fileObjectMapper;
     private final AtomicBoolean bucketChecked = new AtomicBoolean(false);
 
-    public FileStorageService(S3Client s3Client, StorageProperties properties, FileObjectMapper fileObjectMapper) {
+    public FileStorageService(
+            S3Client s3Client,
+            S3Presigner s3Presigner,
+            StorageProperties properties,
+            FileObjectMapper fileObjectMapper
+    ) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
         this.properties = properties;
         this.fileObjectMapper = fileObjectMapper;
     }
@@ -133,6 +144,54 @@ public class FileStorageService {
             return URLConnection.guessContentTypeFromName(name);
         }
         return null;
+    }
+
+    public String createSignedUrl(String objectKey, Duration duration) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(properties.getBucket())
+                .key(objectKey)
+                .build();
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(duration)
+                .getObjectRequest(getObjectRequest)
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    public String resolveObjectKey(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String normalized = url.trim();
+        String publicUrl = normalizeBase(properties.getPublicUrl());
+        if (publicUrl != null && normalized.startsWith(publicUrl)) {
+            return trimLeadingSlash(normalized.substring(publicUrl.length()));
+        }
+        String endpoint = normalizeBase(properties.getEndpoint());
+        if (endpoint != null) {
+            String base = endpoint + "/" + properties.getBucket();
+            if (normalized.startsWith(base)) {
+                return trimLeadingSlash(normalized.substring(base.length()));
+            }
+        }
+        if (!normalized.contains("://")) {
+            return trimLeadingSlash(normalized);
+        }
+        return null;
+    }
+
+    private String normalizeBase(String base) {
+        if (base == null || base.isBlank()) {
+            return null;
+        }
+        return base.replaceAll("/+$", "");
+    }
+
+    private String trimLeadingSlash(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replaceAll("^/+", "");
     }
 
     private String sanitizeSegment(String value) {

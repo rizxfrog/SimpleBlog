@@ -66,7 +66,7 @@
             @dragover.prevent
             @dragenter.prevent
           />
-          <div class="editor-preview markdown" v-html="previewHtml"></div>
+          <div class="editor-preview markdown" ref="previewRef" v-html="previewHtml"></div>
         </div>
         <div v-if="uploads.length" class="upload-queue">
           <div v-for="item in uploads" :key="item.id" class="upload-item">
@@ -119,9 +119,11 @@ const blogId = computed(() => (route.params.id ? Number(route.params.id) : null)
 const isEdit = computed(() => blogId.value !== null)
 const message = ref('')
 const editorRef = ref<HTMLTextAreaElement | null>(null)
+const previewRef = ref<HTMLElement | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
+let signTimer: number | null = null
 const uploads = ref<Array<{
   id: string
   name: string
@@ -216,6 +218,13 @@ const previewHtml = computed(() => {
   }
   return marked.parse(form.content, { renderer }) as string
 })
+
+watch(
+  () => previewHtml.value,
+  () => {
+    scheduleSignMedia()
+  }
+)
 
 const { mutate: createBlog } = useMutation(gql`
   mutation CreateBlog($input: BlogInput!) {
@@ -394,6 +403,59 @@ const markUploadDone = (id: string, failed = false) => {
 const buildUploadUrl = () => {
   const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8888/graphql'
   return api.replace(/\/graphql\/?$/, '') + '/api/uploads'
+}
+
+const scheduleSignMedia = () => {
+  if (signTimer) {
+    window.clearTimeout(signTimer)
+  }
+  signTimer = window.setTimeout(() => {
+    signMediaSources()
+  }, 180)
+}
+
+const signMediaSources = async () => {
+  const root = previewRef.value
+  if (!root) return
+  const targets = Array.from(root.querySelectorAll<HTMLImageElement | HTMLSourceElement>('img, video source'))
+  const urls = Array.from(
+    new Set(
+      targets
+        .map((node) => node.getAttribute('src'))
+        .filter((value): value is string => Boolean(value))
+    )
+  )
+  if (!urls.length) return
+  try {
+    const signedUrls = await fetchSignedUrls(urls)
+    if (!signedUrls) return
+    targets.forEach((node) => {
+      const src = node.getAttribute('src')
+      if (!src) return
+      const signed = signedUrls[src]
+      if (!signed) return
+      node.setAttribute('src', signed)
+      if (node instanceof HTMLSourceElement) {
+        const parent = node.parentElement as HTMLVideoElement | null
+        parent?.load()
+      }
+    })
+  } catch {
+    // ignore signing failures
+  }
+}
+
+const fetchSignedUrls = async (urls: string[]) => {
+  const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8888/graphql'
+  const signUrl = api.replace(/\/graphql\/?$/, '') + '/api/media/sign'
+  const response = await fetch(signUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls })
+  })
+  if (!response.ok) return null
+  const data = await response.json()
+  return data?.signedUrls as Record<string, string> | null
 }
 
 const isVideoUrl = (value: string) => {
