@@ -77,11 +77,28 @@ create table if not exists blog_tags (
 create table if not exists comments (
     id bigserial primary key,
     blog_id bigint not null references blogs(id) on delete cascade,
-    user_id bigint not null references users(id) on delete cascade,
+    user_id bigint references users(id) on delete set null,
     parent_id bigint,
     content text not null,
+    status varchar(16) default 'pending',
+    upvotes bigint default 0,
+    downvotes bigint default 0,
+    author_name varchar(128),
+    author_email varchar(128),
+    author_website varchar(255),
+    author_ip varchar(64),
+    author_ua varchar(255),
     created_at timestamp without time zone default now()
 );
+alter table comments add column if not exists status varchar(16) default 'pending';
+alter table comments add column if not exists upvotes bigint default 0;
+alter table comments add column if not exists downvotes bigint default 0;
+alter table comments add column if not exists author_name varchar(128);
+alter table comments add column if not exists author_email varchar(128);
+alter table comments add column if not exists author_website varchar(255);
+alter table comments add column if not exists author_ip varchar(64);
+alter table comments add column if not exists author_ua varchar(255);
+alter table comments alter column user_id drop not null;
 
 create table if not exists files (
     id bigserial primary key,
@@ -100,6 +117,7 @@ create table if not exists configs (
 
 create index if not exists idx_blogs_published_created on blogs(is_published, created_at desc);
 create index if not exists idx_comments_blog on comments(blog_id);
+create index if not exists idx_comments_status on comments(status);
 
 -- Full-text search support (PostgreSQL)
 create extension if not exists pg_trgm;

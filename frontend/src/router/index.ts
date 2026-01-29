@@ -8,6 +8,7 @@ import AdminPosts from '../views/AdminPosts.vue'
 import AdminEditor from '../views/AdminEditor.vue'
 import DiscoverView from '../views/DiscoverView.vue'
 import AdminSettings from '../views/AdminSettings.vue'
+import AdminComments from '../views/AdminComments.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,6 +20,7 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView },
     { path: '/admin', name: 'admin', component: AdminDashboard },
     { path: '/admin/posts', name: 'admin-posts', component: AdminPosts },
+    { path: '/admin/comments', name: 'admin-comments', component: AdminComments },
     { path: '/admin/editor/:id?', name: 'editor', component: AdminEditor, props: true },
     { path: '/admin/settings', name: 'admin-settings', component: AdminSettings }
   ]

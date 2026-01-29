@@ -9,6 +9,7 @@ import com.simpleblog.model.entity.Category;
 import com.simpleblog.model.entity.Comment;
 import com.simpleblog.model.entity.Tag;
 import com.simpleblog.model.entity.User;
+import com.simpleblog.model.enums.CommentStatus;
 import com.simpleblog.security.SecurityUtils;
 import com.simpleblog.service.BlogService;
 import com.simpleblog.service.CategoryService;
@@ -21,8 +22,12 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Optional;
 
 @Controller
 public class BlogGraphqlController {
@@ -72,7 +77,13 @@ public class BlogGraphqlController {
 
     @QueryMapping
     public List<Comment> comments(@Argument Long blogId) {
-        return commentService.listByBlogId(blogId);
+        return commentService.listApprovedByBlogId(blogId);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @QueryMapping
+    public List<Comment> adminComments(@Argument Long blogId, @Argument CommentStatus status) {
+        return commentService.listByBlogId(blogId, status);
     }
 
     @PreAuthorize("hasAnyRole('admin','user')")
@@ -94,11 +105,24 @@ public class BlogGraphqlController {
         return blogService.deleteBlog(id);
     }
 
-    @PreAuthorize("isAuthenticated()")
     @MutationMapping
     public Comment createComment(@Argument CommentInput input) {
-        User user = currentUser();
-        return commentService.create(user.getId(), input);
+        Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
+        HttpServletRequest request = currentRequest();
+        String ip = resolveClientIp(request);
+        String ua = request != null ? request.getHeader("User-Agent") : null;
+        return commentService.create(user.map(User::getId).orElse(null), input, ip, ua);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Comment updateCommentStatus(@Argument Long id, @Argument CommentStatus status) {
+        return commentService.updateStatus(id, status);
+    }
+
+    @MutationMapping
+    public Comment voteComment(@Argument Long id, @Argument int value) {
+        return commentService.vote(id, value);
     }
 
     @PreAuthorize("hasRole('admin')")
@@ -134,6 +158,9 @@ public class BlogGraphqlController {
 
     @SchemaMapping(typeName = "Comment", field = "user")
     public User user(Comment comment) {
+        if (comment.getUserId() == null) {
+            return null;
+        }
         return userService.findById(comment.getUserId());
     }
 
@@ -141,6 +168,26 @@ public class BlogGraphqlController {
         return SecurityUtils.currentUsername()
                 .map(userService::findByUsername)
                 .orElseThrow(() -> new IllegalStateException("User not authenticated."));
+    }
+
+    private HttpServletRequest currentRequest() {
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attrs != null ? attrs.getRequest() : null;
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "unknown";
+        }
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }
 

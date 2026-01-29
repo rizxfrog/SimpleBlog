@@ -8,10 +8,11 @@
         <span>Ctrl + K</span>
       </div>
       <nav class="admin-menu">
-        <RouterLink to="/admin">仪表盘</RouterLink>
-        <RouterLink to="/admin/posts">文章</RouterLink>
-        <RouterLink to="/admin/editor">新建文章</RouterLink>
-        <RouterLink to="/admin/settings">设置</RouterLink>
+        <RouterLink to="/admin">Dashboard</RouterLink>
+        <RouterLink to="/admin/posts">Posts</RouterLink>
+        <RouterLink to="/admin/comments">Comments</RouterLink>
+        <RouterLink to="/admin/editor">New Post</RouterLink>
+        <RouterLink to="/admin/settings">Settings</RouterLink>
       </nav>
       <div class="admin-profile">
         <div class="avatar"></div>

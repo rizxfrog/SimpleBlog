@@ -770,6 +770,76 @@ main {
     gap: 16px;
 }
 
+.comment-form {
+    display: grid;
+    gap: 12px;
+}
+
+.comment-form-body {
+    display: grid;
+    gap: 12px;
+}
+
+.comment-form-row input,
+.comment-form-row textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-strong);
+    color: var(--text);
+    font-family: var(--font-body);
+}
+
+.comment-form-row textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.comment-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.comment-form-hint {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.comment-action {
+    border: 1px solid var(--line);
+    background: transparent;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.comment-action:hover {
+    border-color: var(--theme);
+    color: var(--theme);
+}
+
+.comment-empty {
+    color: var(--muted);
+    margin: 0;
+}
+
 .comment-item {
     padding: 14px 16px;
     border-radius: 14px;

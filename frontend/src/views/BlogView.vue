@@ -40,14 +40,42 @@
       </aside>
     </div>
 
-    <section class="card" style="margin-top: 24px;" v-if="comments.length">
+    <section class="card comment-form" style="margin-top: 24px;">
       <h3 class="section-title">Comments</h3>
-      <div class="comment-list">
-        <div v-for="comment in comments" :key="comment.id" class="comment-item">
-          <strong>{{ comment.user?.displayName || comment.user?.username || 'Guest' }}</strong>
-          <p>{{ comment.content }}</p>
+      <div class="comment-form-body">
+        <div v-if="!auth.isAuthenticated" class="comment-form-row">
+          <input v-model="commentAuthorName" type="text" placeholder="你的昵称" />
+        </div>
+        <div class="comment-form-row">
+          <textarea v-model="commentContent" rows="4" placeholder="写下你的评论..."></textarea>
+        </div>
+        <div class="comment-form-actions">
+          <span class="comment-form-hint">{{ submitHint }}</span>
+          <button class="btn btn-primary" :disabled="submitting" @click="submitComment">
+            {{ submitting ? '提交中...' : '提交评论' }}
+          </button>
         </div>
       </div>
+    </section>
+
+    <section class="card" style="margin-top: 16px;">
+      <div v-if="comments.length" class="comment-list">
+        <div v-for="comment in comments" :key="comment.id" class="comment-item">
+          <div class="comment-header">
+            <strong>{{ comment.user?.displayName || comment.user?.username || comment.authorName || '匿名用户' }}</strong>
+          </div>
+          <p>{{ comment.content }}</p>
+          <div class="comment-actions">
+            <button class="comment-action" type="button" @click="voteComment(comment.id, 1)">
+              👍 {{ comment.upvotes || 0 }}
+            </button>
+            <button class="comment-action" type="button" @click="voteComment(comment.id, -1)">
+              👎 {{ comment.downvotes || 0 }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <p v-else class="comment-empty">暂无评论，成为第一个留言的人吧。</p>
     </section>
   </div>
 </template>
@@ -55,11 +83,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useQuery } from '@vue/apollo-composable'
+import { useMutation, useQuery } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import { marked, type Tokens } from 'marked'
 import hljs from 'highlight.js'
 import dayjs from 'dayjs'
+import { useAuthStore } from '../stores/auth'
 
 type TocItem = {
   id: string
@@ -70,7 +99,8 @@ type TocItem = {
 const route = useRoute()
 const postId = Number(route.params.id)
 
-const { result } = useQuery(
+const auth = useAuthStore()
+const { result, refetch } = useQuery(
   gql`
     query Blog($id: ID!) {
       blog(id: $id) {
@@ -96,6 +126,9 @@ const { result } = useQuery(
       comments(blogId: $id) {
         id
         content
+        authorName
+        upvotes
+        downvotes
         user {
           id
           username
@@ -115,6 +148,34 @@ const tocItems = ref<TocItem[]>([])
 const activeHeadingId = ref('')
 let headingObserver: IntersectionObserver | null = null
 let signTimer: number | null = null
+
+const commentContent = ref('')
+const commentAuthorName = ref('')
+const submitting = ref(false)
+const submitHint = ref('提交后需要审核，通过后显示。')
+
+const { mutate: createComment } = useMutation(
+  gql`
+    mutation CreateComment($input: CommentInput!) {
+      createComment(input: $input) {
+        id
+        status
+      }
+    }
+  `
+)
+
+const { mutate: vote } = useMutation(
+  gql`
+    mutation VoteComment($id: ID!, $value: Int!) {
+      voteComment(id: $id, value: $value) {
+        id
+        upvotes
+        downvotes
+      }
+    }
+  `
+)
 
 const TOC_MIN_HEADINGS = 4
 const TOC_MIN_CONTENT_LENGTH = 1200
@@ -138,6 +199,44 @@ const formattedDate = computed(() => {
 const coverStyle = computed(() => ({
   backgroundImage: `url(${post.value?.coverUrl})`
 }))
+
+const submitComment = async () => {
+  if (!commentContent.value.trim()) {
+    submitHint.value = '评论内容不能为空。'
+    return
+  }
+  if (!auth.isAuthenticated && !commentAuthorName.value.trim()) {
+    submitHint.value = '匿名评论请填写昵称。'
+    return
+  }
+  submitting.value = true
+  submitHint.value = '提交中...'
+  try {
+    await createComment({
+      input: {
+        blogId: postId,
+        content: commentContent.value.trim(),
+        authorName: auth.isAuthenticated ? null : commentAuthorName.value.trim()
+      }
+    })
+    commentContent.value = ''
+    submitHint.value = '已提交，等待审核通过后显示。'
+    await refetch()
+  } catch (error: any) {
+    submitHint.value = error?.message || '提交失败，请稍后重试。'
+  } finally {
+    submitting.value = false
+  }
+}
+
+const voteComment = async (id: number, value: number) => {
+  try {
+    await vote({ id, value })
+    await refetch()
+  } catch {
+    // ignore
+  }
+}
 
 const slugify = (value: string) => {
   const normalized = value
