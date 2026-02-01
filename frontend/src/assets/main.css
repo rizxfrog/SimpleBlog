@@ -602,17 +602,14 @@ main {
     transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
-.article-action.vote-btn svg {
+.article-action.vote-btn .vote-icon {
     width: 18px;
     height: 18px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 2;
-    transition: transform 0.2s ease, fill 0.2s ease;
+    transition: transform 0.2s ease;
 }
 
-.article-action.vote-btn svg.is-down {
-    transform: rotate(180deg);
+.article-action.vote-btn .vote-icon.is-down {
+    /*transform: rotate(0deg);*/
 }
 
 .article-action.vote-btn:hover {
@@ -629,9 +626,6 @@ main {
     background: var(--theme-a10);
 }
 
-.article-action.vote-btn.is-active svg {
-    fill: currentColor;
-}
 
 .article-body {
     background: var(--card);
