@@ -595,6 +595,44 @@ main {
     cursor: default;
 }
 
+.article-action.vote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.article-action.vote-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    transition: transform 0.2s ease, fill 0.2s ease;
+}
+
+.article-action.vote-btn svg.is-down {
+    transform: rotate(180deg);
+}
+
+.article-action.vote-btn:hover {
+    transform: translateY(-1px);
+}
+
+.article-action.vote-btn:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.article-action.vote-btn.is-active {
+    color: var(--theme);
+    border-color: var(--theme-a20);
+    background: var(--theme-a10);
+}
+
+.article-action.vote-btn.is-active svg {
+    fill: currentColor;
+}
+
 .article-body {
     background: var(--card);
     border-radius: var(--radius);

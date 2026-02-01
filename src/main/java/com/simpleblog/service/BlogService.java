@@ -157,27 +157,73 @@ public class BlogService {
             voteWrapper.eq("voter_ip", voterIp);
         }
         BlogVote existing = blogVoteMapper.selectOne(voteWrapper);
-        if (existing != null) {
-            throw new IllegalStateException("You have already voted on this post.");
+
+        if (existing == null) {
+            BlogVote vote = new BlogVote();
+            vote.setBlogId(blogId);
+            vote.setUserId(userId);
+            vote.setVoterIp(userId == null ? voterIp : null);
+            vote.setValue(value);
+            vote.setCreatedAt(LocalDateTime.now());
+            blogVoteMapper.insert(vote);
+
+            UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("id", blogId);
+            if (value > 0) {
+                updateWrapper.setSql("likes = COALESCE(likes, 0) + 1");
+            } else {
+                updateWrapper.setSql("dislikes = COALESCE(dislikes, 0) + 1");
+            }
+            blogMapper.update(null, updateWrapper);
+            return blogMapper.selectById(blogId);
         }
 
-        BlogVote vote = new BlogVote();
-        vote.setBlogId(blogId);
-        vote.setUserId(userId);
-        vote.setVoterIp(userId == null ? voterIp : null);
-        vote.setValue(value);
-        vote.setCreatedAt(LocalDateTime.now());
-        blogVoteMapper.insert(vote);
+        if (existing.getValue() != null && existing.getValue() == value) {
+            blogVoteMapper.deleteById(existing.getId());
+            UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("id", blogId);
+            if (value > 0) {
+                updateWrapper.setSql("likes = GREATEST(COALESCE(likes, 0) - 1, 0)");
+            } else {
+                updateWrapper.setSql("dislikes = GREATEST(COALESCE(dislikes, 0) - 1, 0)");
+            }
+            blogMapper.update(null, updateWrapper);
+            return blogMapper.selectById(blogId);
+        }
 
+        existing.setValue(value);
+        blogVoteMapper.updateById(existing);
         UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", blogId);
         if (value > 0) {
-            updateWrapper.setSql("likes = COALESCE(likes, 0) + 1");
+            updateWrapper.setSql("""
+                likes = COALESCE(likes, 0) + 1,
+                dislikes = GREATEST(COALESCE(dislikes, 0) - 1, 0)
+                """);
         } else {
-            updateWrapper.setSql("dislikes = COALESCE(dislikes, 0) + 1");
+            updateWrapper.setSql("""
+                dislikes = COALESCE(dislikes, 0) + 1,
+                likes = GREATEST(COALESCE(likes, 0) - 1, 0)
+                """);
         }
         blogMapper.update(null, updateWrapper);
         return blogMapper.selectById(blogId);
+    }
+
+    public Integer getUserVote(Long blogId, Long userId, String ip) {
+        if (blogId == null) {
+            return null;
+        }
+        QueryWrapper<BlogVote> wrapper = new QueryWrapper<>();
+        wrapper.eq("blog_id", blogId);
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        } else {
+            String voterIp = ip == null || ip.isBlank() ? "unknown" : ip;
+            wrapper.eq("voter_ip", voterIp);
+        }
+        BlogVote vote = blogVoteMapper.selectOne(wrapper);
+        return vote == null ? null : vote.getValue();
     }
 
     public List<Long> findTagIds(Long blogId) {

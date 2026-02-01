@@ -219,6 +219,14 @@ public class BlogGraphqlController {
         return blogMetricsService.getTotalViews(blog.getId(), fallback);
     }
 
+    @SchemaMapping(typeName = "Blog", field = "userVote")
+    public Integer userVote(Blog blog) {
+        Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
+        HttpServletRequest request = currentRequest();
+        String ip = resolveClientIp(request);
+        return blogService.getUserVote(blog.getId(), user.map(User::getId).orElse(null), ip);
+    }
+
     @SchemaMapping(typeName = "Blog", field = "category")
     public Category category(Blog blog) {
         if (blog.getCategoryId() == null) {

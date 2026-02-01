@@ -11,11 +11,37 @@
             <span v-if="post.category">· {{ post.category.name }}</span>
           </div>
           <div class="article-actions">
-            <button class="article-action" type="button" @click="voteBlog(1)">
-              Like {{ post.likes || 0 }}
+            <button
+              class="article-action vote-btn"
+              type="button"
+              :class="{ 'is-active': post.userVote === 1 }"
+              aria-label="Like"
+              @click="voteBlog(1)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M7 11V21h8.28a1 1 0 00.98-.804l1.5-7.5A1 1 0 0016.78 11H13V7.5A2.5 2.5 0 0010.5 5H10a1 1 0 00-1 1v5H7z"
+                />
+              </svg>
+              <span>{{ post.likes || 0 }}</span>
             </button>
-            <button class="article-action" type="button" @click="voteBlog(-1)">
-              Dislike {{ post.dislikes || 0 }}
+            <button
+              class="article-action vote-btn"
+              type="button"
+              :class="{ 'is-active': post.userVote === -1 }"
+              aria-label="Dislike"
+              @click="voteBlog(-1)"
+            >
+              <svg class="is-down" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M7 11V21h8.28a1 1 0 00.98-.804l1.5-7.5A1 1 0 0016.78 11H13V7.5A2.5 2.5 0 0010.5 5H10a1 1 0 00-1 1v5H7z"
+                />
+              </svg>
+              <span>{{ post.dislikes || 0 }}</span>
             </button>
             <span class="article-action meta">Views {{ post.views || 0 }}</span>
           </div>
@@ -151,6 +177,7 @@ const { result, refetch } = useQuery(
         views
         likes
         dislikes
+        userVote
         category {
           id
           name
