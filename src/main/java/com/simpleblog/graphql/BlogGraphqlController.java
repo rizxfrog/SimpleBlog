@@ -14,6 +14,7 @@ import com.simpleblog.model.enums.CommentStatus;
 import com.simpleblog.service.EmailService;
 import com.simpleblog.security.SecurityUtils;
 import com.simpleblog.service.BlogService;
+import com.simpleblog.service.BlogMetricsService;
 import com.simpleblog.service.CategoryService;
 import com.simpleblog.service.CommentService;
 import com.simpleblog.service.TagService;
@@ -39,19 +40,22 @@ public class BlogGraphqlController {
     private final CommentService commentService;
     private final UserService userService;
     private final EmailService emailService;
+    private final BlogMetricsService blogMetricsService;
 
     public BlogGraphqlController(BlogService blogService,
                                  CategoryService categoryService,
                                  TagService tagService,
                                  CommentService commentService,
                                  UserService userService,
-                                 EmailService emailService) {
+                                 EmailService emailService,
+                                 BlogMetricsService blogMetricsService) {
         this.blogService = blogService;
         this.categoryService = categoryService;
         this.tagService = tagService;
         this.commentService = commentService;
         this.userService = userService;
         this.emailService = emailService;
+        this.blogMetricsService = blogMetricsService;
     }
 
     @QueryMapping
@@ -68,6 +72,12 @@ public class BlogGraphqlController {
     @QueryMapping
     public Blog blog(@Argument Long id) {
         return blogService.findById(id);
+    }
+
+    @QueryMapping
+    public List<Blog> hotBlogs(@Argument Integer limit) {
+        int safeLimit = limit == null ? 6 : limit;
+        return blogService.listHotBlogs(safeLimit);
     }
 
     @QueryMapping
@@ -108,6 +118,26 @@ public class BlogGraphqlController {
     @MutationMapping
     public Boolean deleteBlog(@Argument Long id) {
         return blogService.deleteBlog(id);
+    }
+
+    @MutationMapping
+    public Boolean recordBlogView(@Argument Long id) {
+        Blog blog = blogService.findById(id);
+        if (blog == null) {
+            return false;
+        }
+        long fallback = blog.getViews() == null ? 0L : blog.getViews();
+        blogMetricsService.getTotalViews(id, fallback);
+        blogMetricsService.trackView(id);
+        return true;
+    }
+
+    @MutationMapping
+    public Blog voteBlog(@Argument Long id, @Argument int value) {
+        Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
+        HttpServletRequest request = currentRequest();
+        String ip = resolveClientIp(request);
+        return blogService.voteBlog(id, value, user.map(User::getId).orElse(null), ip);
     }
 
     @MutationMapping
@@ -181,6 +211,12 @@ public class BlogGraphqlController {
     @SchemaMapping(typeName = "Blog", field = "author")
     public User author(Blog blog) {
         return userService.findById(blog.getAuthorId());
+    }
+
+    @SchemaMapping(typeName = "Blog", field = "views")
+    public Long views(Blog blog) {
+        long fallback = blog.getViews() == null ? 0L : blog.getViews();
+        return blogMetricsService.getTotalViews(blog.getId(), fallback);
     }
 
     @SchemaMapping(typeName = "Blog", field = "category")

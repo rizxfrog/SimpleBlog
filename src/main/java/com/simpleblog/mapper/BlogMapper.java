@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -94,4 +95,22 @@ public interface BlogMapper extends BaseMapper<Blog> {
         </script>
         """)
     long countSearchBlogs(@Param("query") String query);
+
+    @Select("""
+        select
+          b.*,
+          (
+            (coalesce(b.likes, 0) - coalesce(b.dislikes, 0)) * 20
+            + coalesce(pv.views, 0) * 9
+            + coalesce(b.views, 0)
+          ) as rank
+        from blogs b
+        left join article_pv_daily pv
+          on pv.blog_id = b.id
+         and pv.day = #{day}
+        where b.is_published = true
+        order by rank desc nulls last, b.created_at desc
+        limit #{limit}
+        """)
+    List<Blog> listHotBlogs(@Param("day") LocalDate day, @Param("limit") int limit);
 }

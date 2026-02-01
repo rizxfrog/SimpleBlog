@@ -10,6 +10,15 @@
             <span v-if="formattedDate">· {{ formattedDate }}</span>
             <span v-if="post.category">· {{ post.category.name }}</span>
           </div>
+          <div class="article-actions">
+            <button class="article-action" type="button" @click="voteBlog(1)">
+              Like {{ post.likes || 0 }}
+            </button>
+            <button class="article-action" type="button" @click="voteBlog(-1)">
+              Dislike {{ post.dislikes || 0 }}
+            </button>
+            <span class="article-action meta">Views {{ post.views || 0 }}</span>
+          </div>
         </div>
 
         <div v-if="post.coverUrl" class="article-cover" :style="coverStyle"></div>
@@ -139,6 +148,9 @@ const { result, refetch } = useQuery(
         content
         coverUrl
         createdAt
+        views
+        likes
+        dislikes
         category {
           id
           name
@@ -219,6 +231,27 @@ const { mutate: vote } = useMutation(
   `
 )
 
+const { mutate: recordView } = useMutation(
+  gql`
+    mutation RecordBlogView($id: ID!) {
+      recordBlogView(id: $id)
+    }
+  `
+)
+
+const { mutate: voteBlogMutation } = useMutation(
+  gql`
+    mutation VoteBlog($id: ID!, $value: Int!) {
+      voteBlog(id: $id, value: $value) {
+        id
+        likes
+        dislikes
+        views
+      }
+    }
+  `
+)
+
 const { mutate: createReply } = useMutation(
   gql`
     mutation CreateReply($input: ReplyInput!) {
@@ -279,6 +312,15 @@ const submitComment = async () => {
     submitHint.value = error?.message || '提交失败，请稍后重试。'
   } finally {
     submitting.value = false
+  }
+}
+
+const voteBlog = async (value: number) => {
+  try {
+    await voteBlogMutation({ id: postId, value })
+    await refetch()
+  } catch {
+    // ignore
   }
 }
 
@@ -511,6 +553,7 @@ watch(
 
 onMounted(() => {
   setupHeadingObserver()
+  recordView({ id: postId }).catch(() => null)
 })
 
 onBeforeUnmount(() => {

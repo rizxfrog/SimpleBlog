@@ -36,6 +36,9 @@ public class Blog {
     @TableField("likes")
     private Long likes;
 
+    @TableField("dislikes")
+    private Long dislikes;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 
@@ -116,7 +119,7 @@ public class Blog {
     }
 
     public Long getViews() {
-        return views;
+        return views == null ? 0L : views;
     }
 
     public void setViews(Long views) {
@@ -124,11 +127,19 @@ public class Blog {
     }
 
     public Long getLikes() {
-        return likes;
+        return likes == null ? 0L : likes;
     }
 
     public void setLikes(Long likes) {
         this.likes = likes;
+    }
+
+    public Long getDislikes() {
+        return dislikes == null ? 0L : dislikes;
+    }
+
+    public void setDislikes(Long dislikes) {
+        this.dislikes = dislikes;
     }
 
     public LocalDateTime getCreatedAt() {

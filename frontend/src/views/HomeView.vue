@@ -57,6 +57,21 @@
           />
         </div>
         <div class="card">
+          <h4>Hot Posts</h4>
+          <div v-if="!hotPosts.length" class="hot-empty">No data yet.</div>
+          <ol v-else class="hot-list">
+            <li v-for="(item, index) in hotPosts" :key="item.id" class="hot-item">
+              <RouterLink class="hot-link" :to="`/post/${item.id}`">
+                <span class="hot-rank">{{ index + 1 }}</span>
+                <span class="hot-title">{{ item.title }}</span>
+              </RouterLink>
+              <div class="hot-meta">
+                Likes {{ item.likes || 0 }} · Dislikes {{ item.dislikes || 0 }} · Views {{ item.views || 0 }}
+              </div>
+            </li>
+          </ol>
+        </div>
+        <div class="card">
           <h4>Categories</h4>
           <div class="chip-list">
             <span v-for="cat in categories" :key="cat.id" class="chip">
@@ -151,6 +166,18 @@ const META_QUERY = gql`
   }
 `
 
+const HOT_BLOGS_QUERY = gql`
+  query HotBlogs($limit: Int) {
+    hotBlogs(limit: $limit) {
+      id
+      title
+      likes
+      dislikes
+      views
+    }
+  }
+`
+
 const { result } = useQuery(BLOGS_QUERY, {
   page: 1,
   size: pageSize,
@@ -165,6 +192,7 @@ const {
 } = useLazyQuery(SEARCH_BLOGS_QUERY)
 
 const { result: metaResult } = useQuery(META_QUERY)
+const { result: hotResult } = useQuery(HOT_BLOGS_QUERY, { limit: 6 })
 
 const posts = computed(() => result.value?.blogs?.items ?? [])
 
@@ -241,4 +269,5 @@ const listPosts = computed(() => {
 
 const categories = computed(() => metaResult.value?.categories ?? [])
 const tags = computed(() => metaResult.value?.tags ?? [])
+const hotPosts = computed(() => hotResult.value?.hotBlogs ?? [])
 </script>

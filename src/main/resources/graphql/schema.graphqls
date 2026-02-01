@@ -6,6 +6,7 @@ type Query {
   blogs(page: Int!, size: Int!, publishedOnly: Boolean): BlogPage!
   searchBlogs(query: String!, page: Int!, size: Int!): BlogSearchPage!
   blog(id: ID!): Blog
+  hotBlogs(limit: Int): [Blog!]!
   categories: [Category!]!
   tags: [Tag!]!
   comments(blogId: ID!): [Comment!]!
@@ -18,6 +19,8 @@ type Mutation {
   createBlog(input: BlogInput!): Blog!
   updateBlog(id: ID!, input: BlogInput!): Blog!
   deleteBlog(id: ID!): Boolean!
+  recordBlogView(id: ID!): Boolean!
+  voteBlog(id: ID!, value: Int!): Blog!
   createComment(input: CommentInput!): Comment!
   updateCommentStatus(id: ID!, status: CommentStatus!): Comment!
   voteComment(id: ID!, value: Int!): Comment!
@@ -96,6 +99,7 @@ type Blog {
   published: Boolean!
   views: Long!
   likes: Long!
+  dislikes: Long!
   createdAt: DateTime!
   updatedAt: DateTime!
   rank: Float

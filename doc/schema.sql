@@ -64,6 +64,7 @@ create table if not exists blogs (
     is_published boolean default false,
     views bigint default 0,
     likes bigint default 0,
+    dislikes bigint default 0,
     created_at timestamp without time zone default now(),
     updated_at timestamp without time zone default now()
 );
@@ -100,6 +101,25 @@ create table if not exists comment_votes (
     unique (comment_id, user_id, value),
     unique (comment_id, voter_ip, value)
 );
+
+create table if not exists blog_votes (
+    id bigserial primary key,
+    blog_id bigint not null references blogs(id) on delete cascade,
+    user_id bigint,
+    voter_ip varchar(64),
+    value smallint not null,
+    created_at timestamp without time zone default now(),
+    unique (blog_id, user_id),
+    unique (blog_id, voter_ip)
+);
+
+create table if not exists article_pv_daily (
+    id bigserial primary key,
+    blog_id bigint not null references blogs(id) on delete cascade,
+    day date not null,
+    views bigint default 0,
+    unique (blog_id, day)
+);
 alter table comments add column if not exists status varchar(16) default 'pending';
 alter table comments add column if not exists upvotes bigint default 0;
 alter table comments add column if not exists downvotes bigint default 0;
@@ -109,6 +129,7 @@ alter table comments add column if not exists author_website varchar(255);
 alter table comments add column if not exists author_ip varchar(64);
 alter table comments add column if not exists author_ua varchar(255);
 alter table comments alter column user_id drop not null;
+alter table blogs add column if not exists dislikes bigint default 0;
 
 create table if not exists files (
     id bigserial primary key,
@@ -129,6 +150,8 @@ create index if not exists idx_blogs_published_created on blogs(is_published, cr
 create index if not exists idx_comments_blog on comments(blog_id);
 create index if not exists idx_comments_status on comments(status);
 create index if not exists idx_comment_votes_comment on comment_votes(comment_id);
+create index if not exists idx_blog_votes_blog on blog_votes(blog_id);
+create index if not exists idx_article_pv_daily_day on article_pv_daily(day);
 
 -- Full-text search support (PostgreSQL)
 create extension if not exists pg_trgm;
