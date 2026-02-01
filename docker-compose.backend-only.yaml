@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simpleblog-backend
+    volumes:
+      - ./src/main/resources/application.yml:/app/config/application.yml
+    environment:
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/app/config/
+    ports:
+      - "8888:8888"

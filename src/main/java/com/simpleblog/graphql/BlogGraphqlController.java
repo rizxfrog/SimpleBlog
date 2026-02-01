@@ -4,12 +4,14 @@ import com.simpleblog.model.dto.BlogInput;
 import com.simpleblog.model.dto.BlogPage;
 import com.simpleblog.model.dto.BlogSearchPage;
 import com.simpleblog.model.dto.CommentInput;
+import com.simpleblog.model.dto.ReplyInput;
 import com.simpleblog.model.entity.Blog;
 import com.simpleblog.model.entity.Category;
 import com.simpleblog.model.entity.Comment;
 import com.simpleblog.model.entity.Tag;
 import com.simpleblog.model.entity.User;
 import com.simpleblog.model.enums.CommentStatus;
+import com.simpleblog.service.EmailService;
 import com.simpleblog.security.SecurityUtils;
 import com.simpleblog.service.BlogService;
 import com.simpleblog.service.CategoryService;
@@ -36,17 +38,20 @@ public class BlogGraphqlController {
     private final TagService tagService;
     private final CommentService commentService;
     private final UserService userService;
+    private final EmailService emailService;
 
     public BlogGraphqlController(BlogService blogService,
                                  CategoryService categoryService,
                                  TagService tagService,
                                  CommentService commentService,
-                                 UserService userService) {
+                                 UserService userService,
+                                 EmailService emailService) {
         this.blogService = blogService;
         this.categoryService = categoryService;
         this.tagService = tagService;
         this.commentService = commentService;
         this.userService = userService;
+        this.emailService = emailService;
     }
 
     @QueryMapping
@@ -82,8 +87,8 @@ public class BlogGraphqlController {
 
     @PreAuthorize("hasRole('admin')")
     @QueryMapping
-    public List<Comment> adminComments(@Argument Long blogId, @Argument CommentStatus status) {
-        return commentService.listByBlogId(blogId, status);
+    public List<Comment> adminComments(@Argument Long blogId, @Argument CommentStatus status, @Argument String keyword) {
+        return commentService.listByBlogId(blogId, status, keyword);
     }
 
     @PreAuthorize("hasAnyRole('admin','user')")
@@ -114,15 +119,51 @@ public class BlogGraphqlController {
         return commentService.create(user.map(User::getId).orElse(null), input, ip, ua);
     }
 
+    @MutationMapping
+    public Comment createReply(@Argument ReplyInput input) {
+        Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
+        HttpServletRequest request = currentRequest();
+        String ip = resolveClientIp(request);
+        String ua = request != null ? request.getHeader("User-Agent") : null;
+        Comment reply = commentService.createReply(
+                user.map(User::getId).orElse(null),
+                input.commentId(),
+                new CommentInput(null, null, input.content(), input.authorName(), input.authorEmail(), input.authorWebsite()),
+                ip,
+                ua
+        );
+        notifyReply(reply);
+        return reply;
+    }
+
     @PreAuthorize("hasRole('admin')")
     @MutationMapping
     public Comment updateCommentStatus(@Argument Long id, @Argument CommentStatus status) {
-        return commentService.updateStatus(id, status);
+        Comment comment = commentService.updateStatus(id, status);
+        if (status == CommentStatus.approved) {
+            notifyApproved(comment);
+        }
+        return comment;
     }
 
     @MutationMapping
     public Comment voteComment(@Argument Long id, @Argument int value) {
-        return commentService.vote(id, value);
+        Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
+        HttpServletRequest request = currentRequest();
+        String ip = resolveClientIp(request);
+        return commentService.vote(id, value, user.map(User::getId).orElse(null), ip);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean deleteComment(@Argument Long id) {
+        return commentService.delete(id);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean batchUpdateCommentStatus(@Argument List<Long> ids, @Argument CommentStatus status) {
+        return commentService.batchUpdateStatus(ids, status);
     }
 
     @PreAuthorize("hasRole('admin')")
@@ -164,6 +205,16 @@ public class BlogGraphqlController {
         return userService.findById(comment.getUserId());
     }
 
+    @SchemaMapping(typeName = "Comment", field = "replies")
+    public List<Comment> replies(Comment comment) {
+        if (comment.getId() == null) {
+            return List.of();
+        }
+        return commentService.listByBlogId(comment.getBlogId(), CommentStatus.approved).stream()
+                .filter(item -> comment.getId().equals(item.getParentId()))
+                .toList();
+    }
+
     private User currentUser() {
         return SecurityUtils.currentUsername()
                 .map(userService::findByUsername)
@@ -188,6 +239,41 @@ public class BlogGraphqlController {
             return realIp.trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private void notifyApproved(Comment comment) {
+        if (comment == null) {
+            return;
+        }
+        if (comment.getAuthorEmail() == null || comment.getAuthorEmail().isBlank()) {
+            return;
+        }
+        emailService.send(
+                comment.getAuthorEmail(),
+                "评论已通过审核",
+                "你的评论已通过审核并显示在页面中。"
+        );
+    }
+
+    private void notifyReply(Comment reply) {
+        if (reply == null || reply.getParentId() == null) {
+            return;
+        }
+        Comment parent = commentService.listByBlogId(reply.getBlogId(), null).stream()
+                .filter(item -> reply.getParentId().equals(item.getId()))
+                .findFirst()
+                .orElse(null);
+        if (parent == null) {
+            return;
+        }
+        if (parent.getAuthorEmail() == null || parent.getAuthorEmail().isBlank()) {
+            return;
+        }
+        emailService.send(
+                parent.getAuthorEmail(),
+                "你的评论有了新回复",
+                "有人回复了你的评论，快去查看吧。"
+        );
     }
 }
 

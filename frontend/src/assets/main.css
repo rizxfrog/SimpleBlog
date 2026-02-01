@@ -840,6 +840,39 @@ main {
     margin: 0;
 }
 
+.comment-replies {
+    margin-top: 12px;
+    padding-left: 16px;
+    border-left: 2px solid var(--line);
+    display: grid;
+    gap: 12px;
+}
+
+.reply-item {
+    background: var(--panel);
+}
+
+.comment-reply-form {
+    margin-top: 12px;
+    display: grid;
+    gap: 10px;
+}
+
+.comment-reply-form textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-strong);
+    color: var(--text);
+}
+
+.comment-reply-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .comment-item {
     padding: 14px 16px;
     border-radius: 14px;

@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: simpleblog-db
+    environment:
+      POSTGRES_DB: simple_blog
+      POSTGRES_USER: simpleblog
+      POSTGRES_PASSWORD: simpleblog_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - simpleblog_db:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: simpleblog-redis
+    command: ["redis-server", "--requirepass", "redis_password"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - simpleblog_redis:/data
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: simpleblog-rustfs
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      RUSTFS_ROOT_USER: rustfsadmin
+      RUSTFS_ROOT_PASSWORD: rustfsadmin_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - simpleblog_rustfs:/data
+
+  backend:
+    image: eclipse-temurin:21-jdk
+    container_name: simpleblog-backend
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["./gradlew", "bootRun"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/simple_blog
+      SPRING_DATASOURCE_USERNAME: simpleblog
+      SPRING_DATASOURCE_PASSWORD: simpleblog_password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: redis_password
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin_password
+      RUSTFS_BUCKET: simpleblog
+      RUSTFS_REGION: us-east-1
+      RUSTFS_PUBLIC_URL: http://localhost:9000/simpleblog
+      RUSTFS_PATH_STYLE: "true"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    ports:
+      - "8888:8888"
+    depends_on:
+      - db
+      - redis
+      - rustfs
+
+  frontend:
+    image: node:20
+    container_name: simpleblog-frontend
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    command: ["bash", "-lc", "npm install && npm run dev -- --host 0.0.0.0 --port 5173"]
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  simpleblog_db:
+  simpleblog_redis:
+  simpleblog_rustfs:

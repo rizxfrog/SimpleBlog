@@ -90,6 +90,16 @@ create table if not exists comments (
     author_ua varchar(255),
     created_at timestamp without time zone default now()
 );
+create table if not exists comment_votes (
+    id bigserial primary key,
+    comment_id bigint not null references comments(id) on delete cascade,
+    user_id bigint,
+    voter_ip varchar(64),
+    value smallint not null,
+    created_at timestamp without time zone default now(),
+    unique (comment_id, user_id, value),
+    unique (comment_id, voter_ip, value)
+);
 alter table comments add column if not exists status varchar(16) default 'pending';
 alter table comments add column if not exists upvotes bigint default 0;
 alter table comments add column if not exists downvotes bigint default 0;
@@ -118,6 +128,7 @@ create table if not exists configs (
 create index if not exists idx_blogs_published_created on blogs(is_published, created_at desc);
 create index if not exists idx_comments_blog on comments(blog_id);
 create index if not exists idx_comments_status on comments(status);
+create index if not exists idx_comment_votes_comment on comment_votes(comment_id);
 
 -- Full-text search support (PostgreSQL)
 create extension if not exists pg_trgm;

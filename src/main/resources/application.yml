@@ -23,6 +23,17 @@ spring:
       locations: classpath:graphql/
   jackson:
     time-zone: Asia/Shanghai
+  mail:
+    host: ${SMTP_HOST:smtp.sina.com}
+    port: ${SMTP_PORT:587}  // 465 SSL; 587 STARTTLS
+    username: ${SMTP_USERNAME:autumn2567@sina.com}
+    password: ${SMTP_PASSWORD:3d83fdb2de53c8f2}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   servlet:
     multipart:
       max-file-size: 200MB

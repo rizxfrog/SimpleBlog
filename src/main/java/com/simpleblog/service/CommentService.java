@@ -3,8 +3,10 @@ package com.simpleblog.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.simpleblog.mapper.CommentMapper;
+import com.simpleblog.mapper.CommentVoteMapper;
 import com.simpleblog.model.dto.CommentInput;
 import com.simpleblog.model.entity.Comment;
+import com.simpleblog.model.entity.CommentVote;
 import com.simpleblog.model.enums.CommentStatus;
 import org.springframework.stereotype.Service;
 
@@ -18,10 +20,12 @@ public class CommentService {
     private static final long ANONYMOUS_WINDOW_MS = 5 * 60 * 1000L;
 
     private final CommentMapper commentMapper;
+    private final CommentVoteMapper commentVoteMapper;
     private final CommentRateLimiter rateLimiter;
 
-    public CommentService(CommentMapper commentMapper, CommentRateLimiter rateLimiter) {
+    public CommentService(CommentMapper commentMapper, CommentVoteMapper commentVoteMapper, CommentRateLimiter rateLimiter) {
         this.commentMapper = commentMapper;
+        this.commentVoteMapper = commentVoteMapper;
         this.rateLimiter = rateLimiter;
     }
 
@@ -34,14 +38,23 @@ public class CommentService {
     }
 
     public List<Comment> listByBlogId(Long blogId, CommentStatus status) {
+        return listByBlogId(blogId, status, null);
+    }
+
+    public List<Comment> listByBlogId(Long blogId, CommentStatus status, String keyword) {
         QueryWrapper<Comment> wrapper = new QueryWrapper<>();
         if (blogId != null) {
             wrapper.eq("blog_id", blogId);
         }
-        wrapper.orderByAsc("created_at");
         if (status != null) {
             wrapper.eq("status", status.name());
         }
+        if (keyword != null && !keyword.isBlank()) {
+            wrapper.and(w -> w.like("content", keyword)
+                    .or()
+                    .like("author_name", keyword));
+        }
+        wrapper.orderByAsc("created_at");
         return commentMapper.selectList(wrapper);
     }
 
@@ -74,6 +87,22 @@ public class CommentService {
         return comment;
     }
 
+    public Comment createReply(Long userId, Long commentId, CommentInput input, String authorIp, String authorUa) {
+        Comment parent = commentMapper.selectById(commentId);
+        if (parent == null) {
+            throw new IllegalArgumentException("Comment not found.");
+        }
+        Comment reply = create(userId, new CommentInput(
+                parent.getBlogId(),
+                parent.getId(),
+                input.content(),
+                input.authorName(),
+                input.authorEmail(),
+                input.authorWebsite()
+        ), authorIp, authorUa);
+        return reply;
+    }
+
     public Comment updateStatus(Long commentId, CommentStatus status) {
         Comment existing = commentMapper.selectById(commentId);
         if (existing == null) {
@@ -84,10 +113,29 @@ public class CommentService {
         return existing;
     }
 
-    public Comment vote(Long commentId, int value) {
+    public Comment vote(Long commentId, int value, Long userId, String voterIp) {
         if (value != 1 && value != -1) {
             throw new IllegalArgumentException("Vote value must be 1 or -1.");
         }
+        if (userId == null && (voterIp == null || voterIp.isBlank())) {
+            throw new IllegalArgumentException("Voter identity is required.");
+        }
+        // prevent duplicate votes by user or IP
+        if (userId != null && existsVote(commentId, userId, null, value)) {
+            return commentMapper.selectById(commentId);
+        }
+        if (userId == null && existsVote(commentId, null, voterIp, value)) {
+            return commentMapper.selectById(commentId);
+        }
+
+        CommentVote vote = new CommentVote();
+        vote.setCommentId(commentId);
+        vote.setUserId(userId);
+        vote.setVoterIp(voterIp);
+        vote.setValue(value);
+        vote.setCreatedAt(LocalDateTime.now());
+        commentVoteMapper.insert(vote);
+
         UpdateWrapper<Comment> wrapper = new UpdateWrapper<>();
         if (value == 1) {
             wrapper.setSql("upvotes = COALESCE(upvotes, 0) + 1");
@@ -98,5 +146,29 @@ public class CommentService {
         commentMapper.update(null, wrapper);
         return Optional.ofNullable(commentMapper.selectById(commentId))
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found."));
+    }
+
+    public boolean delete(Long commentId) {
+        return commentMapper.deleteById(commentId) > 0;
+    }
+
+    public boolean batchUpdateStatus(List<Long> ids, CommentStatus status) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
+        UpdateWrapper<Comment> wrapper = new UpdateWrapper<>();
+        wrapper.in("id", ids).set("status", status.name());
+        return commentMapper.update(null, wrapper) > 0;
+    }
+
+    private boolean existsVote(Long commentId, Long userId, String voterIp, int value) {
+        QueryWrapper<CommentVote> wrapper = new QueryWrapper<>();
+        wrapper.eq("comment_id", commentId).eq("value", value);
+        if (userId != null) {
+            wrapper.eq("user_id", userId);
+        } else if (voterIp != null) {
+            wrapper.eq("voter_ip", voterIp);
+        }
+        return commentVoteMapper.selectCount(wrapper) > 0;
     }
 }

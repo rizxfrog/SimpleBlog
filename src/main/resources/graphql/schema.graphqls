@@ -9,7 +9,7 @@ type Query {
   categories: [Category!]!
   tags: [Tag!]!
   comments(blogId: ID!): [Comment!]!
-  adminComments(blogId: ID, status: CommentStatus): [Comment!]!
+  adminComments(blogId: ID, status: CommentStatus, keyword: String): [Comment!]!
 }
 
 type Mutation {
@@ -21,6 +21,9 @@ type Mutation {
   createComment(input: CommentInput!): Comment!
   updateCommentStatus(id: ID!, status: CommentStatus!): Comment!
   voteComment(id: ID!, value: Int!): Comment!
+  createReply(input: ReplyInput!): Comment!
+  deleteComment(id: ID!): Boolean!
+  batchUpdateCommentStatus(ids: [ID!]!, status: CommentStatus!): Boolean!
   createCategory(name: String!, slug: String!): Category!
   createTag(name: String!, slug: String!): Tag!
 }
@@ -129,6 +132,15 @@ type Comment {
   authorEmail: String
   authorWebsite: String
   user: User
+  replies: [Comment!]!
+}
+
+input ReplyInput {
+  commentId: ID!
+  content: String!
+  authorName: String
+  authorEmail: String
+  authorWebsite: String
 }
 
 type User {

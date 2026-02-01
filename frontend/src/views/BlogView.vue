@@ -72,6 +72,36 @@
             <button class="comment-action" type="button" @click="voteComment(comment.id, -1)">
               👎 {{ comment.downvotes || 0 }}
             </button>
+            <button class="comment-action" type="button" @click="toggleReplyForm(comment.id)">
+              回复
+            </button>
+          </div>
+          <div v-if="showReplyForm[comment.id]" class="comment-reply-form">
+            <textarea
+              v-model="replyContent[comment.id]"
+              rows="3"
+              placeholder="写下你的回复..."
+            ></textarea>
+            <div class="comment-reply-actions">
+              <button class="btn btn-soft" type="button" @click="toggleReplyForm(comment.id)">取消</button>
+              <button class="btn btn-primary" type="button" @click="submitReply(comment.id)">提交回复</button>
+            </div>
+          </div>
+          <div v-if="comment.replies?.length" class="comment-replies">
+            <div v-for="reply in comment.replies" :key="reply.id" class="comment-item reply-item">
+              <div class="comment-header">
+                <strong>{{ reply.user?.displayName || reply.user?.username || reply.authorName || '匿名用户' }}</strong>
+              </div>
+              <p>{{ reply.content }}</p>
+              <div class="comment-actions">
+                <button class="comment-action" type="button" @click="voteComment(reply.id, 1)">
+                  👍 {{ reply.upvotes || 0 }}
+                </button>
+                <button class="comment-action" type="button" @click="voteComment(reply.id, -1)">
+                  👎 {{ reply.downvotes || 0 }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -129,6 +159,18 @@ const { result, refetch } = useQuery(
         authorName
         upvotes
         downvotes
+        replies {
+          id
+          content
+          authorName
+          upvotes
+          downvotes
+          user {
+            id
+            username
+            displayName
+          }
+        }
         user {
           id
           username
@@ -172,6 +214,17 @@ const { mutate: vote } = useMutation(
         id
         upvotes
         downvotes
+      }
+    }
+  `
+)
+
+const { mutate: createReply } = useMutation(
+  gql`
+    mutation CreateReply($input: ReplyInput!) {
+      createReply(input: $input) {
+        id
+        status
       }
     }
   `
@@ -232,6 +285,32 @@ const submitComment = async () => {
 const voteComment = async (id: number, value: number) => {
   try {
     await vote({ id, value })
+    await refetch()
+  } catch {
+    // ignore
+  }
+}
+
+const replyContent = ref<Record<number, string>>({})
+const showReplyForm = ref<Record<number, boolean>>({})
+
+const toggleReplyForm = (id: number) => {
+  showReplyForm.value = { ...showReplyForm.value, [id]: !showReplyForm.value[id] }
+}
+
+const submitReply = async (commentId: number) => {
+  const content = (replyContent.value[commentId] || '').trim()
+  if (!content) return
+  try {
+    await createReply({
+      input: {
+        commentId,
+        content,
+        authorName: auth.isAuthenticated ? null : commentAuthorName.value.trim()
+      }
+    })
+    replyContent.value = { ...replyContent.value, [commentId]: '' }
+    showReplyForm.value = { ...showReplyForm.value, [commentId]: false }
     await refetch()
   } catch {
     // ignore
