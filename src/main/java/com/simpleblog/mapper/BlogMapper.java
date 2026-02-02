@@ -12,7 +12,6 @@ import java.util.List;
 @Mapper
 public interface BlogMapper extends BaseMapper<Blog> {
     @Select("""
-        <script>
         with query_args as (
           select
             #{query}::text as q,
@@ -58,7 +57,7 @@ public interface BlogMapper extends BaseMapper<Blog> {
               or similarity(
                 coalesce(b.title, '') || ' ' || coalesce(b.summary, '') || ' ' || coalesce(b.content, ''),
                 qa.q
-              ) &gt; 0.08
+              ) > 0.08
               or (coalesce(b.title, '') || ' ' || coalesce(b.summary, '') || ' ' || coalesce(b.content, ''))
                 ilike '%' || qa.q || '%'
             )
@@ -68,12 +67,10 @@ public interface BlogMapper extends BaseMapper<Blog> {
         order by rank desc nulls last, created_at desc
         offset #{offset}
         limit #{size}
-        </script>
         """)
     List<Blog> searchBlogs(@Param("query") String query, @Param("offset") long offset, @Param("size") int size);
 
     @Select("""
-        <script>
         with query_args as (
           select
             #{query}::text as q,
@@ -88,11 +85,10 @@ public interface BlogMapper extends BaseMapper<Blog> {
             or similarity(
               coalesce(b.title, '') || ' ' || coalesce(b.summary, '') || ' ' || coalesce(b.content, ''),
               qa.q
-            ) &gt; 0.08
+            ) > 0.08
             or (coalesce(b.title, '') || ' ' || coalesce(b.summary, '') || ' ' || coalesce(b.content, ''))
               ilike '%' || qa.q || '%'
           )
-        </script>
         """)
     long countSearchBlogs(@Param("query") String query);
 
