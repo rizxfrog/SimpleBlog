@@ -1,12 +1,12 @@
 package com.simpleblog.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.simpleblog.mapper.BlogMapper;
 import com.simpleblog.mapper.BlogTagMapper;
 import com.simpleblog.mapper.BlogVoteMapper;
 import com.simpleblog.model.dto.BlogInput;
+import com.simpleblog.model.dto.BlogVoteEvent;
 import com.simpleblog.model.dto.BlogPage;
 import com.simpleblog.model.dto.BlogSearchPage;
 import com.simpleblog.model.entity.Blog;
@@ -14,10 +14,12 @@ import com.simpleblog.model.entity.BlogTag;
 import com.simpleblog.model.entity.BlogVote;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -28,11 +30,19 @@ public class BlogService {
     private final BlogMapper blogMapper;
     private final BlogTagMapper blogTagMapper;
     private final BlogVoteMapper blogVoteMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final BlogVoteEventPublisher blogVoteEventPublisher;
 
-    public BlogService(BlogMapper blogMapper, BlogTagMapper blogTagMapper, BlogVoteMapper blogVoteMapper) {
+    public BlogService(BlogMapper blogMapper,
+                       BlogTagMapper blogTagMapper,
+                       BlogVoteMapper blogVoteMapper,
+                       StringRedisTemplate redisTemplate,
+                       BlogVoteEventPublisher blogVoteEventPublisher) {
         this.blogMapper = blogMapper;
         this.blogTagMapper = blogTagMapper;
         this.blogVoteMapper = blogVoteMapper;
+        this.redisTemplate = redisTemplate;
+        this.blogVoteEventPublisher = blogVoteEventPublisher;
     }
 
     public BlogPage listBlogs(int page, int size, boolean publishedOnly) {
@@ -148,65 +158,30 @@ public class BlogService {
         if (blog == null) {
             throw new IllegalArgumentException("Blog not found: " + blogId);
         }
-        String voterIp = ip == null || ip.isBlank() ? "unknown" : ip;
-        QueryWrapper<BlogVote> voteWrapper = new QueryWrapper<>();
-        voteWrapper.eq("blog_id", blogId);
-        if (userId != null) {
-            voteWrapper.eq("user_id", userId);
+        String voterIp = normalizeIp(ip);
+        String voterKey = voterKey(blogId, userId, voterIp);
+        Integer current = parseInt(redisTemplate.opsForValue().get(voterKey));
+        int newValue = value;
+        if (current != null && current == value) {
+            newValue = 0;
+        }
+
+        ensureVoteCountsInitialized(blog);
+        applyVoteToRedis(blogId, current == null ? 0 : current, newValue);
+        if (newValue == 0) {
+            redisTemplate.delete(voterKey);
         } else {
-            voteWrapper.eq("voter_ip", voterIp);
-        }
-        BlogVote existing = blogVoteMapper.selectOne(voteWrapper);
-
-        if (existing == null) {
-            BlogVote vote = new BlogVote();
-            vote.setBlogId(blogId);
-            vote.setUserId(userId);
-            vote.setVoterIp(userId == null ? voterIp : null);
-            vote.setValue(value);
-            vote.setCreatedAt(LocalDateTime.now());
-            blogVoteMapper.insert(vote);
-
-            UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.eq("id", blogId);
-            if (value > 0) {
-                updateWrapper.setSql("likes = COALESCE(likes, 0) + 1");
-            } else {
-                updateWrapper.setSql("dislikes = COALESCE(dislikes, 0) + 1");
-            }
-            blogMapper.update(null, updateWrapper);
-            return blogMapper.selectById(blogId);
+            redisTemplate.opsForValue().set(voterKey, String.valueOf(newValue), Duration.ofDays(7));
         }
 
-        if (existing.getValue() != null && existing.getValue() == value) {
-            blogVoteMapper.deleteById(existing.getId());
-            UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.eq("id", blogId);
-            if (value > 0) {
-                updateWrapper.setSql("likes = GREATEST(COALESCE(likes, 0) - 1, 0)");
-            } else {
-                updateWrapper.setSql("dislikes = GREATEST(COALESCE(dislikes, 0) - 1, 0)");
-            }
-            blogMapper.update(null, updateWrapper);
-            return blogMapper.selectById(blogId);
-        }
-
-        existing.setValue(value);
-        blogVoteMapper.updateById(existing);
-        UpdateWrapper<Blog> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("id", blogId);
-        if (value > 0) {
-            updateWrapper.setSql("""
-                likes = COALESCE(likes, 0) + 1,
-                dislikes = GREATEST(COALESCE(dislikes, 0) - 1, 0)
-                """);
-        } else {
-            updateWrapper.setSql("""
-                dislikes = COALESCE(dislikes, 0) + 1,
-                likes = GREATEST(COALESCE(likes, 0) - 1, 0)
-                """);
-        }
-        blogMapper.update(null, updateWrapper);
+        BlogVoteEvent event = new BlogVoteEvent(
+                blogId,
+                userId,
+                voterIp,
+                newValue,
+                LocalDateTime.now()
+        );
+        blogVoteEventPublisher.publish(event);
         return blogMapper.selectById(blogId);
     }
 
@@ -214,16 +189,33 @@ public class BlogService {
         if (blogId == null) {
             return null;
         }
+        String voterIp = normalizeIp(ip);
+        String voterKey = voterKey(blogId, userId, voterIp);
+        Integer cached = parseInt(redisTemplate.opsForValue().get(voterKey));
+        if (cached != null) {
+            return cached;
+        }
         QueryWrapper<BlogVote> wrapper = new QueryWrapper<>();
         wrapper.eq("blog_id", blogId);
         if (userId != null) {
             wrapper.eq("user_id", userId);
         } else {
-            String voterIp = ip == null || ip.isBlank() ? "unknown" : ip;
             wrapper.eq("voter_ip", voterIp);
         }
         BlogVote vote = blogVoteMapper.selectOne(wrapper);
-        return vote == null ? null : vote.getValue();
+        if (vote == null || vote.getValue() == null) {
+            return null;
+        }
+        redisTemplate.opsForValue().set(voterKey, String.valueOf(vote.getValue()), Duration.ofDays(7));
+        return vote.getValue();
+    }
+
+    public long getLikes(Long blogId, long fallback) {
+        return getVoteCount(blogId, "likes", fallback);
+    }
+
+    public long getDislikes(Long blogId, long fallback) {
+        return getVoteCount(blogId, "dislikes", fallback);
     }
 
     public List<Long> findTagIds(Long blogId) {
@@ -237,5 +229,91 @@ public class BlogService {
     private int normalizeSize(int size) {
         int safeSize = Math.max(size, 1);
         return Math.min(safeSize, MAX_PAGE_SIZE);
+    }
+
+    private void applyVoteToRedis(Long blogId, int oldValue, int newValue) {
+        if (oldValue == newValue) {
+            return;
+        }
+        String key = voteCountKey(blogId);
+        if (newValue == 1 && oldValue == 0) {
+            redisTemplate.opsForHash().increment(key, "likes", 1);
+        } else if (newValue == -1 && oldValue == 0) {
+            redisTemplate.opsForHash().increment(key, "dislikes", 1);
+        } else if (newValue == 0 && oldValue == 1) {
+            redisTemplate.opsForHash().increment(key, "likes", -1);
+        } else if (newValue == 0 && oldValue == -1) {
+            redisTemplate.opsForHash().increment(key, "dislikes", -1);
+        } else if (newValue == 1 && oldValue == -1) {
+            redisTemplate.opsForHash().increment(key, "likes", 1);
+            redisTemplate.opsForHash().increment(key, "dislikes", -1);
+        } else if (newValue == -1 && oldValue == 1) {
+            redisTemplate.opsForHash().increment(key, "dislikes", 1);
+            redisTemplate.opsForHash().increment(key, "likes", -1);
+        }
+    }
+
+    private long getVoteCount(Long blogId, String field, long fallback) {
+        String value = (String) redisTemplate.opsForHash().get(voteCountKey(blogId), field);
+        if (value != null) {
+            return parseLong(value);
+        }
+        redisTemplate.opsForHash().put(voteCountKey(blogId), field, String.valueOf(fallback));
+        return fallback;
+    }
+
+    private void ensureVoteCountsInitialized(Blog blog) {
+        if (blog == null || blog.getId() == null) {
+            return;
+        }
+        String key = voteCountKey(blog.getId());
+        Object likes = redisTemplate.opsForHash().get(key, "likes");
+        Object dislikes = redisTemplate.opsForHash().get(key, "dislikes");
+        if (likes == null) {
+            redisTemplate.opsForHash().put(key, "likes", String.valueOf(blog.getLikes()));
+        }
+        if (dislikes == null) {
+            redisTemplate.opsForHash().put(key, "dislikes", String.valueOf(blog.getDislikes()));
+        }
+    }
+
+    private String voterKey(Long blogId, Long userId, String voterIp) {
+        if (userId != null) {
+            return "vote:blog:" + blogId + ":user:" + userId;
+        }
+        return "vote:blog:" + blogId + ":ip:" + voterIp;
+    }
+
+    private String voteCountKey(Long blogId) {
+        return "vote:blog:" + blogId + ":counts";
+    }
+
+    private Integer parseInt(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private long parseLong(String value) {
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            return 0L;
+        }
+    }
+
+    private String normalizeIp(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return "unknown";
+        }
+        return ip;
     }
 }

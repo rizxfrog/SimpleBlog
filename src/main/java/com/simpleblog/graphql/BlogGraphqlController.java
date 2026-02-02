@@ -219,6 +219,18 @@ public class BlogGraphqlController {
         return blogMetricsService.getTotalViews(blog.getId(), fallback);
     }
 
+    @SchemaMapping(typeName = "Blog", field = "likes")
+    public Long likes(Blog blog) {
+        long fallback = blog.getLikes() == null ? 0L : blog.getLikes();
+        return blogService.getLikes(blog.getId(), fallback);
+    }
+
+    @SchemaMapping(typeName = "Blog", field = "dislikes")
+    public Long dislikes(Blog blog) {
+        long fallback = blog.getDislikes() == null ? 0L : blog.getDislikes();
+        return blogService.getDislikes(blog.getId(), fallback);
+    }
+
     @SchemaMapping(typeName = "Blog", field = "userVote")
     public Integer userVote(Blog blog) {
         Optional<User> user = SecurityUtils.currentUsername().map(userService::findByUsername);
