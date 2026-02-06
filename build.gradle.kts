@@ -29,6 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-aop")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
@@ -54,6 +55,8 @@ dependencies {
     // mail
     implementation("org.springframework.boot:spring-boot-starter-mail:3.5.9")
 //    implementation("org.springframework:spring-context-support:7.0.3")
+
+    implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch:3.5.9")
 
 }
 

@@ -462,6 +462,24 @@ main {
     background: var(--bg-strong);
 }
 
+.search-mode {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.search-mode select {
+    border-radius: 999px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-strong);
+    color: var(--text);
+}
+
 .sidebar h4 {
     margin: 0 0 12px;
 }

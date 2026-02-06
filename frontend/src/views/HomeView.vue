@@ -29,7 +29,7 @@
         </article>
 
         <section class="post-list">
-          <div v-if="isSearching && searchLoading" class="card">
+          <div v-if="isSearching && activeSearchLoading" class="card">
             Searching...
           </div>
 
@@ -49,6 +49,13 @@
       <aside class="sidebar">
         <div class="card">
           <h4>Search</h4>
+          <div class="search-mode">
+            <label for="searchMode">Mode</label>
+            <select id="searchMode" v-model="searchMode">
+              <option value="default">Site Search</option>
+              <option value="es">Full-text</option>
+            </select>
+          </div>
           <input
             v-model="searchInput"
             class="search-input"
@@ -153,6 +160,35 @@ const SEARCH_BLOGS_QUERY = gql`
   }
 `
 
+const SEARCH_BLOGS_ES_QUERY = gql`
+  query SearchBlogsEs($query: String!, $page: Int!, $size: Int!) {
+    searchBlogsEs(query: $query, page: $page, size: $size) {
+      total
+      query
+      items {
+        id
+        title
+        summary
+        titleHighlight
+        summaryHighlight
+        rank
+        coverUrl
+        createdAt
+        author {
+          id
+          username
+          displayName
+        }
+        category {
+          id
+          name
+        }
+      }
+    }
+  }
+`
+
+
 const META_QUERY = gql`
   query Meta {
     categories {
@@ -191,14 +227,23 @@ const {
   refetch: refetchSearch
 } = useLazyQuery(SEARCH_BLOGS_QUERY)
 
+const {
+  load: loadSearchEs,
+  result: searchEsResult,
+  loading: searchEsLoading,
+  refetch: refetchSearchEs
+} = useLazyQuery(SEARCH_BLOGS_ES_QUERY)
+
 const { result: metaResult } = useQuery(META_QUERY)
 const { result: hotResult } = useQuery(HOT_BLOGS_QUERY, { limit: 6 })
 
 const posts = computed(() => result.value?.blogs?.items ?? [])
 
 const searchInput = ref('')
+const searchMode = ref('default')
 const debouncedQuery = ref('')
 const hasSearched = ref(false)
+const hasSearchedEs = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(searchInput, (value) => {
@@ -218,6 +263,18 @@ onBeforeUnmount(() => {
 
 const runSearch = async (query: string) => {
   const variables = { query, page: 1, size: pageSize }
+  const useEs = searchMode.value === 'es'
+  if (useEs) {
+    if (!hasSearchedEs.value) {
+      await loadSearchEs(undefined, variables)
+      hasSearchedEs.value = true
+      return
+    }
+    if (refetchSearchEs) {
+      await refetchSearchEs(variables)
+    }
+    return
+  }
   if (!hasSearched.value) {
     await loadSearch(undefined, variables)
     hasSearched.value = true
@@ -228,6 +285,12 @@ const runSearch = async (query: string) => {
   }
 }
 
+
+watch(searchMode, () => {
+  if (debouncedQuery.value) {
+    runSearch(debouncedQuery.value)
+  }
+})
 watch(debouncedQuery, (query) => {
   if (!query) {
     return
@@ -236,10 +299,14 @@ watch(debouncedQuery, (query) => {
 })
 
 const isSearching = computed(() => debouncedQuery.value.length > 0)
+const activeSearchLoading = computed(() => (searchMode.value === 'es' ? searchEsLoading.value : searchLoading.value))
 
 const searchItems = computed(() => {
   if (!isSearching.value) {
     return []
+  }
+  if (searchMode.value === 'es') {
+    return searchEsResult.value?.searchBlogsEs?.items ?? []
   }
   return searchResult.value?.searchBlogs?.items ?? []
 })
@@ -247,6 +314,9 @@ const searchItems = computed(() => {
 const searchTotal = computed(() => {
   if (!isSearching.value) {
     return posts.value.length
+  }
+  if (searchMode.value === 'es') {
+    return searchEsResult.value?.searchBlogsEs?.total ?? 0
   }
   return searchResult.value?.searchBlogs?.total ?? 0
 })

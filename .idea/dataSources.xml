@@ -45,7 +45,7 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/simple_blog</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="jdbc:postgresql://localhost:5432/simple_blog [DEBUG]" group="​SimpleBlogApplication" uuid="98c149e3-0736-4394-b2a9-291b8b18999c">
+    <data-source source="LOCAL" name="jdbc:postgresql://localhost:5432/simple_blog [DEBUG]" group="​SimpleBlogApplication" uuid="6cdab2b8-a10e-4150-ba71-92bc9c9d836e">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>

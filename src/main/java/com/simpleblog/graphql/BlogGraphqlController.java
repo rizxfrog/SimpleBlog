@@ -70,6 +70,11 @@ public class BlogGraphqlController {
     }
 
     @QueryMapping
+    public BlogSearchPage searchBlogsEs(@Argument String query, @Argument int page, @Argument int size) {
+        return blogService.searchBlogsEs(query, page, size);
+    }
+
+    @QueryMapping
     public Blog blog(@Argument Long id) {
         return blogService.findById(id);
     }

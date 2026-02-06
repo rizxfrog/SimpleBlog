@@ -5,6 +5,7 @@ type Query {
   me: User
   blogs(page: Int!, size: Int!, publishedOnly: Boolean): BlogPage!
   searchBlogs(query: String!, page: Int!, size: Int!): BlogSearchPage!
+  searchBlogsEs(query: String!, page: Int!, size: Int!): BlogSearchPage!
   blog(id: ID!): Blog
   hotBlogs(limit: Int): [Blog!]!
   categories: [Category!]!

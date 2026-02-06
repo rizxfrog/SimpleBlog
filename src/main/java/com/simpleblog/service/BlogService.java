@@ -30,17 +30,20 @@ public class BlogService {
     private final BlogMapper blogMapper;
     private final BlogTagMapper blogTagMapper;
     private final BlogVoteMapper blogVoteMapper;
+    private final BlogSearchService blogSearchService;
     private final StringRedisTemplate redisTemplate;
     private final BlogVoteEventPublisher blogVoteEventPublisher;
 
     public BlogService(BlogMapper blogMapper,
                        BlogTagMapper blogTagMapper,
                        BlogVoteMapper blogVoteMapper,
+                       BlogSearchService blogSearchService,
                        StringRedisTemplate redisTemplate,
                        BlogVoteEventPublisher blogVoteEventPublisher) {
         this.blogMapper = blogMapper;
         this.blogTagMapper = blogTagMapper;
         this.blogVoteMapper = blogVoteMapper;
+        this.blogSearchService = blogSearchService;
         this.redisTemplate = redisTemplate;
         this.blogVoteEventPublisher = blogVoteEventPublisher;
     }
@@ -83,6 +86,13 @@ public class BlogService {
         return new BlogSearchPage(items, total, safePage, safeSize, normalizedQuery);
     }
 
+    public BlogSearchPage searchBlogsEs(String query, int page, int size) {
+        int safePage = normalizePage(page);
+        int safeSize = normalizeSize(size);
+        BlogSearchService.SearchResult result = blogSearchService.search(query, safePage, safeSize);
+        return new BlogSearchPage(result.items(), result.total(), safePage, safeSize, query == null ? "" : query.trim());
+    }
+
     @Transactional
     public Blog createBlog(Long authorId, BlogInput input) {
         Blog blog = new Blog();
@@ -99,6 +109,7 @@ public class BlogService {
         blog.setCreatedAt(LocalDateTime.now());
         blog.setUpdatedAt(LocalDateTime.now());
         blogMapper.insert(blog);
+        blogSearchService.indexBlog(blog);
 
         if (input.tagIds() != null) {
             for (Long tagId : input.tagIds()) {
@@ -125,6 +136,7 @@ public class BlogService {
         blog.setPublished(Boolean.TRUE.equals(input.published()));
         blog.setUpdatedAt(LocalDateTime.now());
         blogMapper.updateById(blog);
+        blogSearchService.indexBlog(blog);
 
         if (input.tagIds() != null) {
             QueryWrapper<BlogTag> wrapper = new QueryWrapper<>();
@@ -143,6 +155,7 @@ public class BlogService {
     @Transactional
     public boolean deleteBlog(Long id) {
         blogMapper.deleteById(id);
+        blogSearchService.deleteBlog(id);
         QueryWrapper<BlogTag> wrapper = new QueryWrapper<>();
         wrapper.eq("blog_id", id);
         blogTagMapper.delete(wrapper);

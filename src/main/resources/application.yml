@@ -21,6 +21,10 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:rabbitmq}
     password: ${RABBITMQ_PASSWORD:rabbitmq}
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+    username: elastic
+    password: Elastic_McTtDX
   graphql:
     graphiql:
       enabled: true
