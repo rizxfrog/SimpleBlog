@@ -327,11 +327,11 @@ const isVideoUrl = (value) => {
 };
 const escapeHtmlAttr = (value) => {
     return value
-        .replaceAll('&', '&amp;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 };
 const buildMediaSnippet = (data) => {
     const name = data.name || 'media';

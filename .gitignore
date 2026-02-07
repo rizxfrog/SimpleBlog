@@ -4,3 +4,5 @@
 /.idea/
 /node_modules/
 /doc/todo/
+/frontend/todo.doc/
+/frontend/dist/

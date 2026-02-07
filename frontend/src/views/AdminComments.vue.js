@@ -80,6 +80,7 @@ const bulkDelete = async () => {
 const onSelectionChange = (keys) => {
     selectedIds.value = keys.map((key) => Number(key));
 };
+const rowKey = (row) => row.id;
 const columns = [
     { type: 'selection', width: 48 },
     { title: 'ID', key: 'id', width: 80 },
@@ -213,7 +214,7 @@ const __VLS_13 = __VLS_asFunctionalComponent(__VLS_12, new __VLS_12({
     columns: (__VLS_ctx.columns),
     data: (__VLS_ctx.comments),
     pagination: (false),
-    rowKey: (row => row.id),
+    rowKey: (__VLS_ctx.rowKey),
     ...{ style: {} },
 }));
 const __VLS_14 = __VLS_13({
@@ -221,7 +222,7 @@ const __VLS_14 = __VLS_13({
     columns: (__VLS_ctx.columns),
     data: (__VLS_ctx.comments),
     pagination: (false),
-    rowKey: (row => row.id),
+    rowKey: (__VLS_ctx.rowKey),
     ...{ style: {} },
 }, ...__VLS_functionalComponentArgsRest(__VLS_13));
 let __VLS_16;
@@ -262,6 +263,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             bulkReject: bulkReject,
             bulkDelete: bulkDelete,
             onSelectionChange: onSelectionChange,
+            rowKey: rowKey,
             columns: columns,
             comments: comments,
         };

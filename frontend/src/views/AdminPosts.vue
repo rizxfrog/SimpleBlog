@@ -17,7 +17,7 @@
         :columns="columns"
         :data="posts"
         :pagination="false"
-        :row-key="row => row.id"
+        :row-key="rowKey"
         style="margin-top: 16px;"
       />
     </section>
@@ -37,6 +37,8 @@ type PostRow = {
   title: string
   published: boolean
 }
+
+const rowKey = (row: PostRow) => row.id
 
 const columns = [
   {

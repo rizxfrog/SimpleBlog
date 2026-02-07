@@ -471,11 +471,11 @@ const isVideoUrl = (value: string) => {
 
 const escapeHtmlAttr = (value: string) => {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 const buildMediaSnippet = (data: { url: string; name?: string; contentType?: string }) => {

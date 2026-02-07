@@ -21,7 +21,7 @@
         :columns="columns"
         :data="comments"
         :pagination="false"
-        :row-key="row => row.id"
+        :row-key="rowKey"
         style="margin-top: 16px;"
         @update:checked-row-keys="onSelectionChange"
       />
@@ -142,6 +142,8 @@ const bulkDelete = async () => {
 const onSelectionChange = (keys: Array<string | number>) => {
   selectedIds.value = keys.map((key) => Number(key))
 }
+
+const rowKey = (row: CommentRow) => row.id
 
 const columns = [
   { type: 'selection', width: 48 },

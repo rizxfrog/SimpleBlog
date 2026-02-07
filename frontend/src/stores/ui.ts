@@ -24,11 +24,7 @@ export const useUiStore = defineStore('ui', {
             this.applyTheme()
           }
         }
-        if ('addEventListener' in systemQuery) {
-          systemQuery.addEventListener('change', handler)
-        } else {
-          systemQuery.addListener(handler)
-        }
+        systemQuery.addEventListener('change', handler)
         systemListenerAttached = true
       }
     },

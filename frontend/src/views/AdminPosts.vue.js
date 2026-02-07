@@ -4,6 +4,7 @@ import { useQuery } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 import { NTag } from 'naive-ui';
 import AdminShell from '../components/AdminShell.vue';
+const rowKey = (row) => row.id;
 const columns = [
     {
         type: 'selection'
@@ -103,14 +104,14 @@ const __VLS_13 = __VLS_asFunctionalComponent(__VLS_12, new __VLS_12({
     columns: (__VLS_ctx.columns),
     data: (__VLS_ctx.posts),
     pagination: (false),
-    rowKey: (row => row.id),
+    rowKey: (__VLS_ctx.rowKey),
     ...{ style: {} },
 }));
 const __VLS_14 = __VLS_13({
     columns: (__VLS_ctx.columns),
     data: (__VLS_ctx.posts),
     pagination: (false),
-    rowKey: (row => row.id),
+    rowKey: (__VLS_ctx.rowKey),
     ...{ style: {} },
 }, ...__VLS_functionalComponentArgsRest(__VLS_13));
 var __VLS_2;
@@ -131,6 +132,7 @@ const __VLS_self = (await import('vue')).defineComponent({
         return {
             RouterLink: RouterLink,
             AdminShell: AdminShell,
+            rowKey: rowKey,
             columns: columns,
             posts: posts,
         };
