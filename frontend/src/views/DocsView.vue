@@ -78,6 +78,10 @@ type DocumentNode = {
 	content?: string | null;
 };
 
+type DocTreeOption = TreeOption & {
+	content?: string;
+};
+
 const route = useRoute();
 const router = useRouter();
 const selectedId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -171,7 +175,7 @@ const displayNodes = computed(() => {
 	return flatNodes.value;
 });
 
-const treeOptions = computed<TreeOption[]>(() => {
+const treeOptions = computed<DocTreeOption[]>(() => {
 	if (searchQuery.value.trim()) {
 		return searchItems.value.map(node => ({
 			key: node.id,
@@ -179,7 +183,7 @@ const treeOptions = computed<TreeOption[]>(() => {
 			isLeaf: node.type === 'DOC',
 			children: undefined,
 			content: node.content
-		})) as TreeOption[];
+		}));
 	}
 	return buildTreeOptions(tree.value);
 });
@@ -229,10 +233,10 @@ const onSelect = (keys: Array<string | number>) => {
 	}
 };
 
-const renderLabel = (info: { option: TreeOption }) => {
+const renderLabel = (info: { option: DocTreeOption }) => {
 	const option = info.option;
 	const label = option.label as string;
-	const content = (option as any).content as string | undefined;
+	const content = option.content;
 	if (searchQuery.value.trim()) {
 		return h('div', { class: 'docs-tree-label' }, [
 			h('span', { class: 'docs-title', style: { color: 'var(--text)' }, innerHTML: label }),
@@ -728,7 +732,7 @@ onBeforeUnmount(() => {
 :global([data-theme='dark'] .docs-tree .n-tree .n-tree-node-content),
 :global([data-theme='dark'] .docs-tree .n-tree .n-tree-node-content__text),
 :global([data-theme='dark'] .docs-tree .n-tree .n-tree-node-content__text .docs-title) {
-	color: var(--text);
+	color: #fff;
 }
 
 :global(.docs-tree .n-tree .n-tree-node-content:hover) {

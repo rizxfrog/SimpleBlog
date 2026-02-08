@@ -326,11 +326,16 @@ const selectNode = (node: DocumentNode) => {
 const startCreate = (type: 'DOC' | 'FOLDER') => {
 	isCreating.value = true;
 	message.value = '';
-	const parent = selectedNode.value?.type === 'FOLDER' ? selectedNode.value : null;
+	const selected = selectedNode.value ?? (docResult.value?.document as DocumentNode | undefined);
+	const parentId = selected
+		? selected.type === 'FOLDER'
+			? selected.id
+			: selected.parentId ?? null
+		: null;
 	form.title = '';
 	form.slug = '';
 	form.content = '';
-	form.parentId = parent?.id ?? null;
+	form.parentId = parentId != null ? Number(parentId) : null;
 	form.sortOrder = 0;
 	form.hidden = false;
 	form.type = type;
@@ -342,7 +347,7 @@ const loadForm = () => {
 	form.title = doc.title;
 	form.slug = deriveSlug(doc.path);
 	form.content = doc.content ?? '';
-	form.parentId = doc.parentId ? Number(doc.parentId) : null;
+	form.parentId = doc.parentId != null ? Number(doc.parentId) : null;
 	form.sortOrder = doc.sortOrder ?? 0;
 	form.hidden = Boolean(doc.hidden);
 	form.type = doc.type;
@@ -362,7 +367,7 @@ const onSelect = (keys: Array<string | number>) => {
 	}
 };
 
-const onTreeDrop = async (info: { node: TreeOption; dragNode: TreeOption; dropPosition: 'before' | 'inside' | 'after' }) => {
+const onTreeDrop = async (info: { node: TreeOption; dragNode: TreeOption; dropPosition: 'before' | 'inside' | 'after' | number }) => {
 	const targetId = Number(info.node.key);
 	const draggedId = Number(info.dragNode.key);
 	if (!targetId || !draggedId || targetId === draggedId) return;
@@ -370,14 +375,16 @@ const onTreeDrop = async (info: { node: TreeOption; dragNode: TreeOption; dropPo
 	const dragged = flatNodes.value.find(node => node.id === draggedId);
 	if (!target || !dragged) return;
 
-	if (info.dropPosition === 'inside') {
+	const dropPosition = typeof info.dropPosition === 'number' ? (info.dropPosition < 0 ? 'before' : info.dropPosition > 0 ? 'after' : 'inside') : info.dropPosition;
+
+	if (dropPosition === 'inside') {
 		if (target.type === 'FOLDER' && dragged.parentId !== target.id) {
 			await moveToParent(dragged, target.id);
 		}
 		return;
 	}
 
-	const placeAfter = info.dropPosition === 'after';
+	const placeAfter = dropPosition === 'after';
 	const sameParent = (dragged.parentId ?? null) === (target.parentId ?? null);
 	if (sameParent) {
 		await reorderWithinParent(dragged, target, placeAfter);
