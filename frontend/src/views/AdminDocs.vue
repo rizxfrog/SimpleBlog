@@ -293,10 +293,20 @@ const typeOptions = [
 
 const folderOptions = computed(() => {
 	const folders = flatNodes.value.filter(node => node.type === 'FOLDER');
-	return folders.map(node => ({
+	const options = folders.map(node => ({
 		label: `${'  '.repeat(Math.max(node.depth - 1, 0))}${node.title}`,
 		value: node.id
 	}));
+	const parentId = form.parentId;
+	if (parentId != null && !options.some(option => option.value === parentId)) {
+		const parentNode = flatNodes.value.find(node => node.id === parentId);
+		const fallbackLabel = parentNode?.title ?? deriveParentName(docResult.value?.document?.path) ?? 'Root';
+		options.unshift({
+			label: fallbackLabel,
+			value: parentId
+		});
+	}
+	return options;
 });
 
 const siblings = computed(() => {
@@ -746,6 +756,13 @@ const deriveSlug = (path: string) => {
 	if (!path) return '';
 	const parts = path.split('.');
 	return parts[parts.length - 1] ?? '';
+};
+
+const deriveParentName = (path?: string | null) => {
+	if (!path) return null;
+	const parts = path.split('.');
+	if (parts.length < 2) return null;
+	return parts[parts.length - 2] ?? null;
 };
 
 watch(() => docResult.value?.document, loadForm);
