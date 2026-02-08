@@ -1,4 +1,4 @@
-﻿import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client/core'
+import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client/core'
 import { setContext } from '@apollo/client/link/context'
 
 const httpLink = new HttpLink({

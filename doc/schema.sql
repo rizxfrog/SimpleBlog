@@ -247,3 +247,21 @@ create trigger trg_documents_delete_subtree
 after delete on documents
 for each row execute function documents_delete_subtree();
 
+
+-- Document revisions
+create table if not exists document_revisions (
+    id bigserial primary key,
+    document_id bigint not null references documents(id) on delete cascade,
+    type doc_node_type not null,
+    title varchar(200) not null,
+    content text,
+    path ltree not null,
+    parent_id bigint,
+    sort_order int not null default 0,
+    is_hidden boolean not null default false,
+    revision_number int not null,
+    created_by bigint references users(id),
+    created_at timestamp without time zone default now()
+);
+
+create index if not exists idx_document_revisions_doc on document_revisions(document_id, revision_number desc);

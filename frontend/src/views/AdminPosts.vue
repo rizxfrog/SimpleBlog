@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <AdminShell title="文章管理" subtitle="维护站点内容与发布状态">
     <template #actions>
       <RouterLink class="btn btn-primary" to="/admin/editor">新建</RouterLink>

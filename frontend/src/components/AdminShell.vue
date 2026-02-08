@@ -11,6 +11,7 @@
         <RouterLink to="/admin">Dashboard</RouterLink>
         <RouterLink to="/admin/posts">Posts</RouterLink>
         <RouterLink to="/admin/comments">Comments</RouterLink>
+        <RouterLink to="/admin/docs">Docs</RouterLink>
         <RouterLink to="/admin/editor">New Post</RouterLink>
         <RouterLink to="/admin/settings">Settings</RouterLink>
       </nav>
@@ -65,3 +66,4 @@ const naiveTheme = computed(() => {
   return null
 })
 </script>
+

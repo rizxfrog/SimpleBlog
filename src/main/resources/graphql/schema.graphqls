@@ -12,6 +12,12 @@ type Query {
   tags: [Tag!]!
   comments(blogId: ID!): [Comment!]!
   adminComments(blogId: ID, status: CommentStatus, keyword: String): [Comment!]!
+  documents(includeHidden: Boolean = false): [Document!]!
+  documentTree(rootId: ID, includeHidden: Boolean = false): [Document!]!
+  document(id: ID!, includeHidden: Boolean = false): Document
+  searchDocuments(query: String!, page: Int!, size: Int!, includeHidden: Boolean = false): DocumentSearchPage!
+  documentRevisions(documentId: ID!): [DocumentRevision!]!
+  documentRevision(id: ID!): DocumentRevision
 }
 
 type Mutation {
@@ -30,6 +36,12 @@ type Mutation {
   batchUpdateCommentStatus(ids: [ID!]!, status: CommentStatus!): Boolean!
   createCategory(name: String!, slug: String!): Category!
   createTag(name: String!, slug: String!): Tag!
+  createDocument(input: DocumentCreateInput!): Document!
+  updateDocument(id: ID!, input: DocumentUpdateInput!): Document!
+  moveDocument(id: ID!, input: DocumentMoveInput!): Document!
+  toggleDocumentHidden(id: ID!, hidden: Boolean!): Document!
+  deleteDocument(id: ID!): Boolean!
+  restoreDocumentRevision(revisionId: ID!): Document!
 }
 
 type AuthPayload {
@@ -74,6 +86,36 @@ enum CommentStatus {
   rejected
 }
 
+enum DocumentNodeType {
+  FOLDER
+  DOC
+}
+
+input DocumentCreateInput {
+  title: String!
+  content: String
+  parentId: ID
+  sortOrder: Int
+  hidden: Boolean
+  slug: String
+  type: DocumentNodeType
+}
+
+input DocumentUpdateInput {
+  title: String
+  content: String
+  sortOrder: Int
+  hidden: Boolean
+  slug: String
+  type: DocumentNodeType
+}
+
+input DocumentMoveInput {
+  parentId: ID
+  sortOrder: Int
+  slug: String
+}
+
 type BlogPage {
   items: [Blog!]!
   total: Long!
@@ -83,6 +125,14 @@ type BlogPage {
 
 type BlogSearchPage {
   items: [Blog!]!
+  total: Long!
+  page: Int!
+  size: Int!
+  query: String!
+}
+
+type DocumentSearchPage {
+  items: [Document!]!
   total: Long!
   page: Int!
   size: Int!
@@ -122,6 +172,37 @@ type Tag {
   id: ID!
   name: String!
   slug: String!
+}
+
+type Document {
+  id: ID!
+  title: String!
+  content: String
+  parentId: ID
+  type: DocumentNodeType!
+  path: String!
+  sortOrder: Int!
+  hidden: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  depth: Int!
+  slug: String
+  children: [Document!]!
+}
+
+type DocumentRevision {
+  id: ID!
+  documentId: ID!
+  type: DocumentNodeType!
+  title: String!
+  content: String
+  path: String!
+  parentId: ID
+  sortOrder: Int!
+  hidden: Boolean!
+  revisionNumber: Int!
+  createdBy: ID
+  createdAt: DateTime!
 }
 
 type Comment {

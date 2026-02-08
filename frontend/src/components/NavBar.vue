@@ -9,6 +9,7 @@
       <nav class="nav-links">
         <RouterLink to="/">主页</RouterLink>
         <RouterLink to="/blog">文章</RouterLink>
+        <RouterLink to="/docs">Docs</RouterLink>
         <RouterLink to="/discover">主题</RouterLink>
         <RouterLink v-if="auth.isAuthenticated" to="/admin">后台</RouterLink>
       </nav>
@@ -21,7 +22,7 @@
         </div>
 
         <!--        <RouterLink v-if="!auth.isAuthenticated" class="btn btn-primary" to="/login">登录</RouterLink>-->
-        <!--        <button v-else class="avatar-chip" @click="onLogout">退出</button>-->
+        <!--        <button v-else class="avatar-chip" @click="onLogout">退�?/button>-->
         <n-button v-if="!auth.isAuthenticated" type="primary" round ghost @click="router.push('/login')">登录</n-button>
         <n-button v-else type="error" round secondary strong @click="onLogout">Logout</n-button>
       </div>
@@ -78,3 +79,5 @@ const onLogout = () => {
   --n-bezier: cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>
+
+

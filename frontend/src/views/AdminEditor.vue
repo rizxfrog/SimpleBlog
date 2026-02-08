@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <AdminShell :title="isEdit ? '编辑文章' : '新建文章'" subtitle="Markdown 编辑与预览">
     <template #actions>
       <n-button type="primary" class="btn btn-primary" @click="onSubmit">保存</n-button>

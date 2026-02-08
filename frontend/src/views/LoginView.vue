@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<div class="auth-page">
 		<section class="auth-card fade-up">
 			<div class="auth-header">

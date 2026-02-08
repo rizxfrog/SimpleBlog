@@ -1,4 +1,4 @@
-﻿# Document Tree (PostgreSQL ltree)
+# Document Tree (PostgreSQL ltree)
 
 This document describes the database design for the Document feature with high-performance tree queries using PostgreSQL `ltree`.
 

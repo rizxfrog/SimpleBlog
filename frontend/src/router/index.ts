@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import LandingView from '../views/LandingView.vue'
 import BlogHomeView from '../views/HomeView.vue'
 import BlogView from '../views/BlogView.vue'
@@ -9,6 +9,8 @@ import AdminEditor from '../views/AdminEditor.vue'
 import DiscoverView from '../views/DiscoverView.vue'
 import AdminSettings from '../views/AdminSettings.vue'
 import AdminComments from '../views/AdminComments.vue'
+import DocsView from '../views/DocsView.vue'
+import AdminDocs from '../views/AdminDocs.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -16,11 +18,13 @@ const router = createRouter({
     { path: '/', name: 'landing', component: LandingView },
     { path: '/blog', name: 'home', component: BlogHomeView },
     { path: '/discover', name: 'discover', component: DiscoverView },
+    { path: '/docs/:id?', name: 'docs', component: DocsView, props: true },
     { path: '/post/:id', name: 'post', component: BlogView, props: true },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/admin', name: 'admin', component: AdminDashboard },
     { path: '/admin/posts', name: 'admin-posts', component: AdminPosts },
     { path: '/admin/comments', name: 'admin-comments', component: AdminComments },
+    { path: '/admin/docs', name: 'admin-docs', component: AdminDocs },
     { path: '/admin/editor/:id?', name: 'editor', component: AdminEditor, props: true },
     { path: '/admin/settings', name: 'admin-settings', component: AdminSettings }
   ]
@@ -37,3 +41,4 @@ router.beforeEach((to) => {
 })
 
 export default router
+
