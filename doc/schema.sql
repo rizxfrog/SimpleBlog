@@ -12,7 +12,7 @@ end $$;
 
 create table if not exists roles (
     id bigserial primary key,
-    code varchar(32) not null unique,
+    code role_code,
     name varchar(64) not null
 );
 
@@ -168,3 +168,82 @@ create index if not exists idx_blogs_search_vector on blogs using gin (search_ve
 create index if not exists idx_blogs_search_trgm on blogs using gin (
     (coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')) gin_trgm_ops
 );
+
+-- Document tree (ltree)
+
+do $$ begin
+    if not exists (select 1 from pg_type where typname = 'doc_node_type') then
+        create type doc_node_type as enum ('folder', 'doc');
+    end if;
+end $$;
+
+create extension if not exists ltree;
+
+create table if not exists documents (
+    id bigserial primary key,
+    parent_id bigint references documents(id) on delete cascade,
+    type doc_node_type not null ,   -- folder / doc
+    title varchar(200) not null,    -- 标题
+    content text check (( type = 'folder' and content is null ) or (type = 'doc')),   -- 内容
+    path ltree not null,
+    sort_order int not null default 0,
+    is_hidden boolean not null default false,
+    created_by bigint references users(id),
+    updated_by bigint references users(id),
+    created_at timestamp without time zone default now(),
+    updated_at timestamp without time zone default now(),
+    depth int generated always as (nlevel(path)) stored,
+    unique (path),
+    unique (parent_id, sort_order)
+);
+
+create index if not exists idx_documents_path_gist on documents using gist (path);
+create index if not exists idx_documents_parent_sort on documents (parent_id, sort_order);
+create index if not exists idx_documents_hidden on documents (is_hidden);
+
+-- Enforce path/parent consistency via trigger
+create or replace function documents_validate_path() returns trigger as $$
+declare
+    parent_path ltree;
+    parent_depth int;
+begin
+    if new.parent_id is null then
+        if nlevel(new.path) <> 1 then
+            raise exception 'documents.path depth must be 1 for root nodes';
+        end if;
+    else
+        select path, depth into parent_path, parent_depth
+        from documents
+        where id = new.parent_id;
+
+        if parent_path is null then
+            raise exception 'documents.parent_id % does not exist', new.parent_id;
+        end if;
+
+        if not (new.path <@ parent_path and nlevel(new.path) = parent_depth + 1) then
+            raise exception 'documents.path % is not a direct child of parent path %', new.path, parent_path;
+        end if;
+    end if;
+
+    return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_documents_validate_path on documents;
+create trigger trg_documents_validate_path
+before insert or update of path, parent_id on documents
+for each row execute function documents_validate_path();
+
+-- Cascading delete for entire subtree using trigger
+create or replace function documents_delete_subtree() returns trigger as $$
+begin
+    delete from documents where path <@ old.path and id <> old.id;
+    return old;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_documents_delete_subtree on documents;
+create trigger trg_documents_delete_subtree
+after delete on documents
+for each row execute function documents_delete_subtree();
+
