@@ -417,7 +417,7 @@ const signMediaSources = async () => {
 };
 
 const fetchSignedUrls = async (urls: string[]) => {
-	const api = import.meta.env.VITE_API_URL ?? 'http://localhost:8888/graphql';
+	const api = import.meta.env.VITE_API_URL ?? '/graphql';
 	const signUrl = api.replace(/\/graphql\/?$/, '') + '/api/media/sign';
 	const response = await fetch(signUrl, {
 		method: 'POST',

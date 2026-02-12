@@ -10,6 +10,12 @@ export default defineConfig({
 		}
 	},
 	server: {
-		port: 5173
+		port: 5173,
+		proxy: {
+			'/graphql': {
+				target: 'http://142.171.2.134:18888/graphql',
+				changeOrigin: true
+			}
+		}
 	}
 });
