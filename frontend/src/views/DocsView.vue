@@ -56,8 +56,29 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuery } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 import { marked, type Tokens } from 'marked';
-import hljs from 'highlight.js';
+import hljs from 'highlight.js/lib/core';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import java from 'highlight.js/lib/languages/java';
+import yaml from 'highlight.js/lib/languages/yaml';
 import type { TreeOption } from 'naive-ui';
+
+hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('yaml', yaml);
 
 type TocItem = {
 	id: string;
@@ -182,7 +203,7 @@ const treeOptions = computed<DocTreeOption[]>(() => {
 			label: node.title,
 			isLeaf: node.type === 'DOC',
 			children: undefined,
-			content: node.content
+			content: node.content ?? undefined
 		}));
 	}
 	return buildTreeOptions(tree.value);

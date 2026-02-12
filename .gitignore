@@ -6,3 +6,4 @@
 /doc/todo/
 /frontend/todo.doc/
 /frontend/dist/
+*.js
