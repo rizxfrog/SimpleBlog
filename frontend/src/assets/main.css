@@ -1095,15 +1095,13 @@ main {
 }
 
 .admin-menu {
-    display: grid;
-    gap: 8px;
 }
 
 .admin-menu a {
-    position: relative;
-    padding: 10px 14px;
-    border-radius: 14px;
-    font-weight: 700;
+    /*position: relative;*/
+    /*padding: 2px 2px;*/
+    /*border-radius: 2px;*/
+    /*font-weight: 200;*/
     background: var(--bg-strong);
     border: 1px solid var(--line);
     transition:
@@ -1113,31 +1111,31 @@ main {
             transform 0.2s ease;
 }
 
-.admin-menu a.router-link-active {
+/*.admin-menu a.router-link-active {
     background: var(--panel);
     border-color: var(--theme);
-    box-shadow: 0 6px 16px var(--theme-a20);
+    box-shadow: 0 6px 2px var(--theme-a20);
     color: var(--text);
     transform: translateX(2px);
-}
+}*/
 
-.admin-menu a::before {
+/*.admin-menu a::before {
     content: '';
     position: absolute;
-    left: 10px;
+    left: 2px;
     top: 50%;
-    width: 6px;
-    height: 6px;
+    width: 2px;
+    height: 2px;
     border-radius: 999px;
     background: var(--text-meta);
     transform: translateY(-50%);
     transition: background-color 0.2s ease, transform 0.2s ease;
-}
+}*/
 
-.admin-menu a.router-link-active::before {
+/*.admin-menu a.router-link-active::before {
     background: var(--theme);
     transform: translateY(-50%) scale(1.2);
-}
+}*/
 
 .admin-profile {
     display: flex;
