@@ -1,18 +1,20 @@
 <template>
 	<AdminShell title="Documents" subtitle="Manage the document tree">
 		<template #actions>
-			<n-button type="default" class="btn btn-soft" @click="startCreate('FOLDER')">New Folder</n-button>
-			<n-button type="default" class="btn btn-soft" @click="startCreate('DOC')">New Doc</n-button>
-			<n-button type="primary" class="btn btn-primary" @click="saveDocument" :disabled="saving">
-				{{ isCreating ? 'Create' : 'Save' }}
-			</n-button>
+			<n-select :value="activeVersion" :options="versionOptions" size="small" class="docs-version-select" @update:value="onVersionChange" />
+			<n-button type="default" class="btn btn-soft" @click="startEdit" :disabled="saving || !selectedId">Edit</n-button>
 		</template>
 
 		<section class="admin-docs">
 			<aside class="card docs-tree">
 				<div class="docs-tree-header">
-					<h3>Tree</h3>
+					<h3>目录</h3>
 					<span v-if="loading" class="docs-loading">Loading</span>
+				</div>
+				<div class="docs-tree-actions">
+					<n-button type="primary" strong secondary round @click="startCreate('FOLDER')" :disabled="saving">新建文件夹</n-button>
+					<n-button type="info" strong secondary round @click="startCreate('DOC')" :disabled="saving">新建文档</n-button>
+					<n-button type="default" strong secondary round @click="openVersionManager" :disabled="saving">版本管理</n-button>
 				</div>
 				<div v-if="!flatNodes.length" class="docs-empty">No documents yet.</div>
 				<n-tree v-else :data="treeOptions" draggable block-line expand-on-click selectable :selected-keys="selectedKeys" :default-expand-all="true" :on-update:selected-keys="onSelect" :on-drop="onTreeDrop" />
@@ -21,10 +23,11 @@
 			<section class="card docs-editor">
 				<div class="docs-editor-header">
 					<div>
-						<h3>{{ isCreating ? 'New Document' : 'Edit Document' }}</h3>
+						<h3>{{ selectedNode || docResult?.document ? 'Document Details' : 'Select Document' }}</h3>
 						<p v-if="selectedNode || docResult?.document" class="docs-muted">Selected: {{ selectedNode?.title ?? docResult?.document?.title }}</p>
 					</div>
 					<div class="docs-editor-actions" v-if="selectedNode">
+						<n-button type="default" class="btn btn-soft" @click="startEdit" :disabled="saving">Edit</n-button>
 						<n-button type="default" class="btn btn-soft" @click="moveUp" :disabled="saving || !canMoveUp">Move Up</n-button>
 						<n-button type="default" class="btn btn-soft" @click="moveDown" :disabled="saving || !canMoveDown">Move Down</n-button>
 						<n-button type="default" class="btn btn-soft" @click="toggleHidden" :disabled="saving">
@@ -34,34 +37,11 @@
 					</div>
 				</div>
 
-				<n-form label-placement="top" v-if="isCreating || selectedId">
-					<n-form-item label="Type">
-						<n-select v-model:value="form.type" :options="typeOptions" />
-					</n-form-item>
-					<n-form-item label="Title">
-						<n-input v-model:value="form.title" placeholder="Document title" />
-					</n-form-item>
-					<n-form-item label="Slug">
-						<n-input v-model:value="form.slug" placeholder="Optional slug" />
-					</n-form-item>
-					<n-form-item label="Parent Folder">
-						<n-select v-model:value="form.parentId" :options="folderOptions" placeholder="Root" clearable />
-					</n-form-item>
-					<n-form-item label="Sort Order">
-						<n-input-number v-model:value="form.sortOrder" :min="0" />
-					</n-form-item>
-					<n-form-item label="Hidden">
-						<n-switch v-model:value="form.hidden">
-							<template #checked>Hidden</template>
-							<template #unchecked>Visible</template>
-						</n-switch>
-					</n-form-item>
-					<n-form-item v-if="form.type === 'DOC'" label="Content">
-						<n-input v-model:value="form.content" type="textarea" placeholder="Write your markdown content..." :autosize="{ minRows: 8, maxRows: 20 }" />
-					</n-form-item>
+				<div v-if="selectedNode || docResult?.document" class="docs-summary">
+					<p class="docs-muted">Version: {{ activeVersion }}</p>
+					<p class="docs-muted">Path: {{ selectedNode?.path ?? docResult?.document?.path }}</p>
 					<p v-if="message" class="docs-message">{{ message }}</p>
-				</n-form>
-
+				</div>
 				<div v-else class="docs-empty">Select a document to edit.</div>
 
 				<div v-if="selectedNode" class="docs-revisions">
@@ -121,6 +101,81 @@
 				</div>
 			</section>
 		</section>
+
+		<n-modal v-model:show="showEditorModal">
+			<div class="card docs-modal">
+				<div class="docs-modal-header">
+					<h3>{{ isCreating ? 'Create Document' : 'Edit Document' }}</h3>
+					<n-button type="default" class="btn btn-soft" @click="closeEditorModal">Close</n-button>
+				</div>
+				<n-form label-placement="top" v-if="isCreating || selectedId">
+					<n-form-item label="Version">
+						<n-input :value="activeVersion" disabled />
+					</n-form-item>
+					<n-form-item label="Type">
+						<n-select v-model:value="form.type" :options="typeOptions" />
+					</n-form-item>
+					<n-form-item label="Title">
+						<n-input v-model:value="form.title" placeholder="Document title" />
+					</n-form-item>
+					<n-form-item label="Slug">
+						<n-input v-model:value="form.slug" placeholder="Optional slug" />
+					</n-form-item>
+					<n-form-item label="Parent Folder">
+						<n-select v-model:value="form.parentId" :options="folderOptions" placeholder="Root" clearable />
+					</n-form-item>
+					<n-form-item label="Sort Order">
+						<n-input-number v-model:value="form.sortOrder" :min="0" />
+					</n-form-item>
+					<n-form-item label="Hidden">
+						<n-switch v-model:value="form.hidden">
+							<template #checked>Hidden</template>
+							<template #unchecked>Visible</template>
+						</n-switch>
+					</n-form-item>
+					<n-form-item v-if="form.type === 'DOC'" label="Content">
+						<n-input v-model:value="form.content" type="textarea" placeholder="Write your markdown content..." :autosize="{ minRows: 8, maxRows: 20 }" />
+					</n-form-item>
+				</n-form>
+				<p v-if="message" class="docs-message">{{ message }}</p>
+				<div class="docs-modal-actions">
+					<n-button type="default" class="btn btn-soft" @click="closeEditorModal">Cancel</n-button>
+					<n-button type="primary" class="btn btn-primary" @click="saveDocument" :disabled="saving">
+						{{ isCreating ? 'Create' : 'Save' }}
+					</n-button>
+				</div>
+			</div>
+		</n-modal>
+
+		<n-modal v-model:show="showVersionModal">
+			<div class="card docs-modal docs-version-modal">
+				<div class="docs-modal-header">
+					<h3>Version Manager</h3>
+					<n-button type="default" class="btn btn-soft" @click="showVersionModal = false">Close</n-button>
+				</div>
+				<n-form label-placement="top">
+					<n-form-item label="New Version">
+						<n-input v-model:value="versionForm.targetVersion" placeholder="v1, v2, release-2026" />
+					</n-form-item>
+					<n-form-item label="Copy Existing Tree">
+						<n-switch v-model:value="versionForm.copyFromCurrent">
+							<template #checked>From Current</template>
+							<template #unchecked>From Default</template>
+						</n-switch>
+					</n-form-item>
+				</n-form>
+				<n-button type="primary" class="btn btn-primary" :disabled="saving" @click="createVersion">Create Version</n-button>
+				<div class="docs-version-list">
+					<div v-for="version in versionList" :key="version" class="docs-version-item">
+						<strong>{{ version }}</strong>
+						<div class="docs-version-item-actions">
+							<n-button size="small" class="btn btn-soft" @click="switchToVersion(version)">Use</n-button>
+							<n-button v-if="version !== defaultVersion" size="small" type="error" class="btn" :disabled="saving" @click="removeVersion(version)">Delete</n-button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</n-modal>
 	</AdminShell>
 </template>
 
@@ -137,6 +192,7 @@ type DocumentNode = {
 	title: string;
 	parentId: number | null;
 	type: 'FOLDER' | 'DOC';
+	version?: string;
 	path: string;
 	sortOrder: number;
 	hidden: boolean;
@@ -144,35 +200,55 @@ type DocumentNode = {
 	children: DocumentNode[];
 };
 
+const defaultVersion = 'default';
 const saving = ref(false);
 const message = ref('');
 const selectedId = ref<number | null>(null);
 const isCreating = ref(false);
 const selectedRevisionId = ref<number | null>(null);
+const showEditorModal = ref(false);
+const showVersionModal = ref(false);
+const activeVersion = ref(defaultVersion);
 
-const { result, loading, refetch } = useQuery(gql`
-	query DocumentsAdmin {
-		documents(includeHidden: true) {
-			id
-			title
-			parentId
-			type
-			path
-			sortOrder
-			hidden
-			depth
-		}
+const versionForm = reactive({
+	targetVersion: '',
+	copyFromCurrent: true
+});
+
+const { result: versionsResult, refetch: refetchVersions } = useQuery(gql`
+	query DocumentVersions {
+		documentVersions
 	}
 `);
 
+const { result, loading, refetch } = useQuery(
+	gql`
+		query DocumentsAdmin($version: String!) {
+			documents(includeHidden: true, version: $version) {
+				id
+				title
+				parentId
+				type
+				version
+				path
+				sortOrder
+				hidden
+				depth
+			}
+		}
+	`,
+	() => ({ version: activeVersion.value })
+);
+
 const { result: docResult, refetch: refetchDoc } = useQuery(
 	gql`
-		query DocumentAdmin($id: ID!, $includeHidden: Boolean) {
-			document(id: $id, includeHidden: $includeHidden) {
+		query DocumentAdmin($id: ID!, $includeHidden: Boolean, $version: String!) {
+			document(id: $id, includeHidden: $includeHidden, version: $version) {
 				id
 				title
 				content
 				type
+				version
 				parentId
 				sortOrder
 				hidden
@@ -180,7 +256,7 @@ const { result: docResult, refetch: refetchDoc } = useQuery(
 			}
 		}
 	`,
-	() => ({ id: selectedId.value, includeHidden: true }),
+	() => ({ id: selectedId.value, includeHidden: true, version: activeVersion.value }),
 	{ enabled: computed(() => !!selectedId.value) }
 );
 
@@ -264,6 +340,18 @@ const { mutate: restoreRevisionMutation } = useMutation(gql`
 	}
 `);
 
+const { mutate: createDocumentVersionMutation } = useMutation(gql`
+	mutation CreateDocumentVersion($sourceVersion: String, $targetVersion: String!) {
+		createDocumentVersion(sourceVersion: $sourceVersion, targetVersion: $targetVersion)
+	}
+`);
+
+const { mutate: deleteDocumentVersionMutation } = useMutation(gql`
+	mutation DeleteDocumentVersion($version: String!) {
+		deleteDocumentVersion(version: $version)
+	}
+`);
+
 const nodes = computed<DocumentNode[]>(() => result.value?.documents ?? []);
 const tree = computed(() => buildTree(nodes.value));
 const flatNodes = computed(() => flattenTree(tree.value));
@@ -275,6 +363,24 @@ const diffLeft = computed(() => buildColumnDiff(diffLines.value).left);
 const diffRight = computed(() => buildColumnDiff(diffLines.value).right);
 const selectedKeys = computed(() => (selectedId.value ? [selectedId.value] : []));
 const treeOptions = computed<TreeOption[]>(() => buildTreeOptions(tree.value));
+const versionList = computed(() => {
+	const raw: string[] = versionsResult.value?.documentVersions ?? [];
+	const set = new Set<string>([defaultVersion]);
+	raw.forEach(value => {
+		const normalized = normalizeVersion(value);
+		if (normalized) {
+			set.add(normalized);
+		}
+	});
+	const values = Array.from(set).sort();
+	return [defaultVersion, ...values.filter(value => value !== defaultVersion)];
+});
+const versionOptions = computed(() =>
+	versionList.value.map(value => ({
+		label: value,
+		value
+	}))
+);
 
 const form = reactive({
 	title: '',
@@ -327,6 +433,84 @@ const canMoveDown = computed(() => {
 	return index >= 0 && index < siblings.value.length - 1;
 });
 
+const onVersionChange = (value: string | number) => {
+	switchToVersion(String(value));
+};
+
+const switchToVersion = (version: string) => {
+	const next = normalizeVersion(version);
+	if (!next || next === activeVersion.value) {
+		return;
+	}
+	activeVersion.value = next;
+	selectedId.value = null;
+	selectedRevisionId.value = null;
+	isCreating.value = false;
+	showEditorModal.value = false;
+	message.value = '';
+};
+
+const openVersionManager = () => {
+	versionForm.targetVersion = '';
+	versionForm.copyFromCurrent = true;
+	showVersionModal.value = true;
+	message.value = '';
+};
+
+const createVersion = async () => {
+	const target = normalizeVersion(versionForm.targetVersion);
+	if (!target) {
+		message.value = 'Version name is required.';
+		return;
+	}
+	if (versionList.value.includes(target)) {
+		message.value = `Version already exists: ${target}`;
+		return;
+	}
+	saving.value = true;
+	message.value = '';
+	try {
+		await createDocumentVersionMutation({
+			sourceVersion: versionForm.copyFromCurrent ? activeVersion.value : defaultVersion,
+			targetVersion: target
+		});
+		await refetchVersions();
+		switchToVersion(target);
+		await refetch();
+		showVersionModal.value = false;
+		message.value = `Version created: ${target}`;
+	} catch (error: any) {
+		message.value = error?.message || 'Create version failed';
+	} finally {
+		saving.value = false;
+	}
+};
+
+const removeVersion = async (version: string) => {
+	if (version === defaultVersion) {
+		message.value = 'Default version cannot be deleted.';
+		return;
+	}
+	if (!window.confirm(`Delete version "${version}"?`)) {
+		return;
+	}
+	saving.value = true;
+	message.value = '';
+	try {
+		await deleteDocumentVersionMutation({ version });
+		await refetchVersions();
+		if (activeVersion.value === version) {
+			switchToVersion(defaultVersion);
+		}
+		await refetch();
+		message.value = `Version deleted: ${version}`;
+	} catch (error: any) {
+		message.value = error?.message || 'Delete version failed';
+	} finally {
+		saving.value = false;
+	}
+};
+
 const selectNode = (node: DocumentNode) => {
 	selectedId.value = node.id;
 	isCreating.value = false;
@@ -337,11 +521,7 @@ const startCreate = (type: 'DOC' | 'FOLDER') => {
 	isCreating.value = true;
 	message.value = '';
 	const selected = selectedNode.value ?? (docResult.value?.document as DocumentNode | undefined);
-	const parentId = selected
-		? selected.type === 'FOLDER'
-			? selected.id
-			: selected.parentId ?? null
-		: null;
+	const parentId = selected ? (selected.type === 'FOLDER' ? selected.id : (selected.parentId ?? null)) : null;
 	form.title = '';
 	form.slug = '';
 	form.content = '';
@@ -349,6 +529,20 @@ const startCreate = (type: 'DOC' | 'FOLDER') => {
 	form.sortOrder = 0;
 	form.hidden = false;
 	form.type = type;
+	showEditorModal.value = true;
+};
+
+const startEdit = async () => {
+	if (!selectedId.value) return;
+	isCreating.value = false;
+	message.value = '';
+	await refetchDoc();
+	loadForm();
+	showEditorModal.value = true;
+};
+
+const closeEditorModal = () => {
+	showEditorModal.value = false;
 };
 
 const loadForm = () => {
@@ -459,11 +653,15 @@ const moveToParentAt = async (node: DocumentNode, parentId: number | null, targe
 };
 
 const saveDocument = async () => {
+	if (!form.title.trim()) {
+		message.value = 'Title is required';
+		return;
+	}
 	message.value = '';
 	saving.value = true;
 	try {
 		if (isCreating.value) {
-			await createDocument({
+			const createResult = await createDocument({
 				input: {
 					title: form.title,
 					content: form.type === 'DOC' ? form.content : null,
@@ -471,9 +669,14 @@ const saveDocument = async () => {
 					sortOrder: Number(form.sortOrder) || 0,
 					hidden: form.hidden,
 					slug: form.slug || null,
+					version: activeVersion.value,
 					type: form.type
 				}
 			});
+			const createdId = Number(createResult?.data?.createDocument?.id ?? 0);
+			if (createdId) {
+				selectedId.value = createdId;
+			}
 			message.value = 'Created';
 			isCreating.value = false;
 		} else if (selectedId.value && selectedNode.value) {
@@ -511,6 +714,7 @@ const saveDocument = async () => {
 			await refetchDoc();
 		}
 		await refetchRevisions();
+		showEditorModal.value = false;
 	} catch (error: any) {
 		message.value = error?.message || 'Failed';
 	} finally {
@@ -525,7 +729,9 @@ const deleteCurrent = async () => {
 	try {
 		await deleteDocument({ id: selectedId.value });
 		selectedId.value = null;
+		selectedRevisionId.value = null;
 		isCreating.value = false;
+		showEditorModal.value = false;
 		message.value = 'Deleted';
 		await refetch();
 		await refetchRevisions();
@@ -765,6 +971,32 @@ const deriveParentName = (path?: string | null) => {
 	return parts[parts.length - 2] ?? null;
 };
 
+const normalizeVersion = (value?: string | null) => {
+	const raw = (value ?? '').trim().toLowerCase();
+	if (!raw) {
+		return defaultVersion;
+	}
+	const normalized = raw
+		.replace(/[^a-z0-9._-]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return normalized || defaultVersion;
+};
+
+watch(
+	() => versionList.value,
+	list => {
+		if (!list.includes(activeVersion.value)) {
+			activeVersion.value = defaultVersion;
+			selectedId.value = null;
+			selectedRevisionId.value = null;
+			isCreating.value = false;
+			showEditorModal.value = false;
+		}
+	},
+	{ immediate: true }
+);
+
 watch(() => docResult.value?.document, loadForm);
 watch(
 	() => selectedId.value,
@@ -795,6 +1027,21 @@ watch(
 	margin-bottom: 12px;
 }
 
+.docs-version-select {
+	min-width: 180px;
+}
+
+.docs-tree-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.docs-tree-actions :deep(.n-button) {
+	white-space: nowrap;
+}
+
 /* Tree styles are handled by Naive UI */
 
 .docs-editor {
@@ -814,6 +1061,11 @@ watch(
 	display: flex;
 	gap: 10px;
 	flex-wrap: wrap;
+}
+
+.docs-summary {
+	display: grid;
+	gap: 6px;
 }
 
 .docs-revisions {
@@ -915,6 +1167,54 @@ watch(
 .diff-remove {
 	color: #b42318;
 	background: rgba(180, 35, 24, 0.12);
+}
+
+.docs-modal {
+	width: min(760px, 94vw);
+	max-height: 90vh;
+	overflow: auto;
+	margin: 5vh auto;
+	padding: 18px;
+	display: grid;
+	gap: 14px;
+}
+
+.docs-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.docs-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.docs-version-modal {
+	width: min(620px, 94vw);
+}
+
+.docs-version-list {
+	display: grid;
+	gap: 8px;
+}
+
+.docs-version-item {
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--bg-strong);
+	padding: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.docs-version-item-actions {
+	display: flex;
+	gap: 8px;
 }
 
 .docs-muted {

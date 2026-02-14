@@ -61,21 +61,25 @@ public class DocumentRevisionService {
 
         Long parentId = revision.getParentId();
         String path = revision.getPath();
-        if (parentId != null && documentMapper.selectById(parentId) == null) {
-            parentId = null;
-            path = normalizeRootPath(path);
+        if (parentId != null) {
+            Document parent = documentMapper.selectById(parentId);
+            if (parent == null || !document.getVersion().equals(parent.getVersion())) {
+                parentId = null;
+                path = normalizeRootPath(path);
+            }
         }
 
-        String uniquePath = ensureUniquePath(path, document.getId());
+        String version = document.getVersion();
+        String uniquePath = ensureUniquePath(path, document.getId(), version);
         if (oldPath != null && !oldPath.equals(uniquePath)) {
-            documentMapper.updatePathPrefix(oldPath, uniquePath);
+            documentMapper.updatePathPrefix(oldPath, uniquePath, version);
         }
         document.setParentId(parentId);
         document.setPath(uniquePath);
         document.setUpdatedBy(userId);
         document.setUpdatedAt(LocalDateTime.now());
         documentMapper.updateById(document);
-        reindexSubtree(uniquePath);
+        reindexSubtree(uniquePath, version);
         return document;
     }
 
@@ -89,6 +93,7 @@ public class DocumentRevisionService {
         revision.setType(document.getType());
         revision.setTitle(document.getTitle());
         revision.setContent(document.getContent());
+        revision.setVersion(document.getVersion());
         revision.setPath(document.getPath());
         revision.setParentId(document.getParentId());
         revision.setSortOrder(document.getSortOrder());
@@ -107,27 +112,27 @@ public class DocumentRevisionService {
         return slug.isBlank() ? "restored" : slug;
     }
 
-    private String ensureUniquePath(String basePath, Long documentId) {
+    private String ensureUniquePath(String basePath, Long documentId, String version) {
         if (basePath == null || basePath.isBlank()) {
             basePath = "restored";
         }
-        if (documentMapper.countByPathExcludingId(basePath, documentId) == 0) {
+        if (documentMapper.countByPathExcludingId(basePath, documentId, version) == 0) {
             return basePath;
         }
         String candidate = basePath;
         int suffix = 2;
-        while (documentMapper.countByPathExcludingId(candidate, documentId) > 0) {
+        while (documentMapper.countByPathExcludingId(candidate, documentId, version) > 0) {
             candidate = basePath + "_r" + suffix;
             suffix += 1;
         }
         return candidate;
     }
 
-    private void reindexSubtree(String rootPath) {
+    private void reindexSubtree(String rootPath, String version) {
         if (rootPath == null || rootPath.isBlank()) {
             return;
         }
-        List<Document> subtree = documentMapper.listSubtree(rootPath, true);
+        List<Document> subtree = documentMapper.listSubtree(rootPath, true, version);
         for (Document item : subtree) {
             documentSearchService.indexDocument(item);
         }

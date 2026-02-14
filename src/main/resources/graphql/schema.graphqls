@@ -12,12 +12,13 @@ type Query {
   tags: [Tag!]!
   comments(blogId: ID!): [Comment!]!
   adminComments(blogId: ID, status: CommentStatus, keyword: String): [Comment!]!
-  documents(includeHidden: Boolean = false): [Document!]!
-  documentTree(rootId: ID, includeHidden: Boolean = false): [Document!]!
-  document(id: ID!, includeHidden: Boolean = false): Document
-  searchDocuments(query: String!, page: Int!, size: Int!, includeHidden: Boolean = false): DocumentSearchPage!
+  documents(includeHidden: Boolean = false, version: String = "default"): [Document!]!
+  documentTree(rootId: ID, includeHidden: Boolean = false, version: String = "default"): [Document!]!
+  document(id: ID!, includeHidden: Boolean = false, version: String = "default"): Document
+  searchDocuments(query: String!, page: Int!, size: Int!, includeHidden: Boolean = false, version: String = "default"): DocumentSearchPage!
   documentRevisions(documentId: ID!): [DocumentRevision!]!
   documentRevision(id: ID!): DocumentRevision
+  documentVersions: [String!]!
 }
 
 type Mutation {
@@ -42,6 +43,8 @@ type Mutation {
   toggleDocumentHidden(id: ID!, hidden: Boolean!): Document!
   deleteDocument(id: ID!): Boolean!
   restoreDocumentRevision(revisionId: ID!): Document!
+  createDocumentVersion(sourceVersion: String = "default", targetVersion: String!): Boolean!
+  deleteDocumentVersion(version: String!): Boolean!
 }
 
 type AuthPayload {
@@ -98,6 +101,7 @@ input DocumentCreateInput {
   sortOrder: Int
   hidden: Boolean
   slug: String
+  version: String
   type: DocumentNodeType
 }
 
@@ -178,6 +182,7 @@ type Document {
   id: ID!
   title: String!
   content: String
+  version: String!
   parentId: ID
   type: DocumentNodeType!
   path: String!
@@ -196,6 +201,7 @@ type DocumentRevision {
   type: DocumentNodeType!
   title: String!
   content: String
+  version: String!
   path: String!
   parentId: ID
   sortOrder: Int!

@@ -181,6 +181,7 @@ create extension if not exists ltree;
 
 create table if not exists documents (
     id bigserial primary key,
+    doc_version varchar(64) not null default 'default',
     parent_id bigint references documents(id) on delete cascade,
     type doc_node_type not null ,   -- folder / doc
     title varchar(200) not null,    -- 标题
@@ -193,13 +194,57 @@ create table if not exists documents (
     created_at timestamp without time zone default now(),
     updated_at timestamp without time zone default now(),
     depth int generated always as (nlevel(path)) stored,
-    unique (path),
-    unique (parent_id, sort_order)
+    unique (doc_version, path),
+    unique (doc_version, parent_id, sort_order)
 );
 
 create index if not exists idx_documents_path_gist on documents using gist (path);
-create index if not exists idx_documents_parent_sort on documents (parent_id, sort_order);
+create index if not exists idx_documents_version_parent_sort on documents (doc_version, parent_id, sort_order);
 create index if not exists idx_documents_hidden on documents (is_hidden);
+create index if not exists idx_documents_version on documents (doc_version);
+
+-- alter table documents add column if not exists doc_version varchar(64) not null default 'default';
+
+do $$
+begin
+    if exists (
+        select 1 from information_schema.table_constraints
+        where table_name = 'documents'
+          and constraint_name = 'documents_path_key'
+    ) then
+        alter table documents drop constraint documents_path_key;
+    end if;
+
+    if exists (
+        select 1 from information_schema.table_constraints
+        where table_name = 'documents'
+          and constraint_name = 'documents_parent_id_sort_order_key'
+    ) then
+        alter table documents drop constraint documents_parent_id_sort_order_key;
+    end if;
+
+    if not exists (
+        select 1
+        from pg_constraint c
+        join pg_class t on t.oid = c.conrelid
+        where t.relname = 'documents'
+          and c.contype = 'u'
+          and pg_get_constraintdef(c.oid) = 'UNIQUE (doc_version, path)'
+    ) then
+        alter table documents add constraint uk_documents_version_path unique (doc_version, path);
+    end if;
+
+    if not exists (
+        select 1
+        from pg_constraint c
+        join pg_class t on t.oid = c.conrelid
+        where t.relname = 'documents'
+          and c.contype = 'u'
+          and pg_get_constraintdef(c.oid) = 'UNIQUE (doc_version, parent_id, sort_order)'
+    ) then
+        alter table documents add constraint uk_documents_version_parent_sort unique (doc_version, parent_id, sort_order);
+    end if;
+end $$;
 
 -- Enforce path/parent consistency via trigger
 create or replace function documents_validate_path() returns trigger as $$
@@ -252,6 +297,7 @@ for each row execute function documents_delete_subtree();
 create table if not exists document_revisions (
     id bigserial primary key,
     document_id bigint not null references documents(id) on delete cascade,
+    doc_version varchar(64) not null default 'default',
     type doc_node_type not null,
     title varchar(200) not null,
     content text,
@@ -265,3 +311,5 @@ create table if not exists document_revisions (
 );
 
 create index if not exists idx_document_revisions_doc on document_revisions(document_id, revision_number desc);
+create index if not exists idx_document_revisions_version_doc on document_revisions(doc_version, document_id, revision_number desc);
+-- alter table document_revisions add column if not exists doc_version varchar(64) not null default 'default';

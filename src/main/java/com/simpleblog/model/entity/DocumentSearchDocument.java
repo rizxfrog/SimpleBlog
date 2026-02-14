@@ -18,6 +18,9 @@ public class DocumentSearchDocument {
     @Field(type = FieldType.Text)
     private String content;
 
+    @Field(type = FieldType.Keyword, name = "doc_version")
+    private String version;
+
     @Field(type = FieldType.Keyword, name = "path")
     private String path;
 
@@ -55,6 +58,14 @@ public class DocumentSearchDocument {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
     }
 
     public String getPath() {

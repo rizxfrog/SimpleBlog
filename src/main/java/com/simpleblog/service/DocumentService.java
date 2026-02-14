@@ -13,13 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
 @Service
 public class DocumentService {
+    public static final String DEFAULT_VERSION = "default";
     private final DocumentMapper documentMapper;
     private final DocumentSearchService documentSearchService;
     private final DocumentRevisionService documentRevisionService;
@@ -32,12 +35,16 @@ public class DocumentService {
         this.documentRevisionService = documentRevisionService;
     }
 
-    public Document findById(Long id, boolean includeHidden) {
+    public Document findById(Long id, boolean includeHidden, String version) {
         if (id == null) {
             return null;
         }
+        String resolvedVersion = normalizeVersion(version);
         Document document = documentMapper.selectById(id);
         if (document == null) {
+            return null;
+        }
+        if (!Objects.equals(document.getVersion(), resolvedVersion)) {
             return null;
         }
         if (!includeHidden && Boolean.TRUE.equals(document.getHidden())) {
@@ -46,26 +53,112 @@ public class DocumentService {
         return document;
     }
 
-    public List<Document> listDocuments(boolean includeHidden) {
-        return documentMapper.listAll(includeHidden);
+    public List<Document> listDocuments(boolean includeHidden, String version) {
+        String resolvedVersion = normalizeVersion(version);
+        return documentMapper.listAll(includeHidden, resolvedVersion);
     }
 
-    public List<Document> documentTree(Long rootId, boolean includeHidden) {
+    public List<Document> documentTree(Long rootId, boolean includeHidden, String version) {
+        String resolvedVersion = normalizeVersion(version);
         List<Document> nodes;
         if (rootId == null) {
-            nodes = documentMapper.listAll(includeHidden);
+            nodes = documentMapper.listAll(includeHidden, resolvedVersion);
             return buildTree(nodes, null);
         }
-        String rootPath = documentMapper.findPathById(rootId);
-        if (rootPath == null) {
+        Document root = documentMapper.selectById(rootId);
+        if (root == null || !Objects.equals(root.getVersion(), resolvedVersion)) {
             return List.of();
         }
-        nodes = documentMapper.listSubtree(rootPath, includeHidden);
+        nodes = documentMapper.listSubtree(root.getPath(), includeHidden, resolvedVersion);
         return buildTree(nodes, rootId);
     }
 
-    public DocumentSearchPage searchDocuments(String query, int page, int size, boolean includeHidden) {
-        return documentSearchService.search(query, page, size, includeHidden);
+    public DocumentSearchPage searchDocuments(String query, int page, int size, boolean includeHidden, String version) {
+        String resolvedVersion = normalizeVersion(version);
+        return documentSearchService.search(query, page, size, includeHidden, resolvedVersion);
+    }
+
+    public List<String> listVersions() {
+        List<String> versions = new ArrayList<>();
+        versions.add(DEFAULT_VERSION);
+        for (String item : documentMapper.listVersions()) {
+            String normalized = normalizeVersion(item);
+            if (!versions.contains(normalized)) {
+                versions.add(normalized);
+            }
+        }
+        versions.sort(String::compareTo);
+        versions.remove(DEFAULT_VERSION);
+        versions.add(0, DEFAULT_VERSION);
+        return versions;
+    }
+
+    @Transactional
+    public boolean createVersion(String sourceVersion, String targetVersion, Long userId) {
+        String source = normalizeVersion(sourceVersion);
+        String target = normalizeVersion(targetVersion);
+        if (Objects.equals(source, target)) {
+            throw new IllegalArgumentException("Source and target versions must be different.");
+        }
+        if (documentMapper.countByVersion(target) > 0) {
+            throw new IllegalArgumentException("Version already exists: " + target);
+        }
+        List<Document> sourceNodes = documentMapper.listAll(true, source);
+        if (sourceNodes.isEmpty()) {
+            return true;
+        }
+
+        sourceNodes.sort(Comparator
+                .comparing((Document node) -> node.getDepth() == null ? 0 : node.getDepth())
+                .thenComparing(Document::getSortOrder)
+                .thenComparing(Document::getId));
+
+        Map<Long, Long> idMap = new HashMap<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (Document sourceNode : sourceNodes) {
+            Long mappedParentId = null;
+            if (sourceNode.getParentId() != null) {
+                mappedParentId = idMap.get(sourceNode.getParentId());
+            }
+            String slug = deriveSlug(sourceNode.getPath());
+
+            Document next = new Document();
+            next.setParentId(mappedParentId);
+            next.setType(sourceNode.getType());
+            next.setTitle(sourceNode.getTitle());
+            next.setContent(sourceNode.getType() == DocumentNodeType.DOC ? sourceNode.getContent() : null);
+            next.setVersion(target);
+            next.setPath(buildPath(mappedParentId, slug, target));
+            next.setSortOrder(sourceNode.getSortOrder());
+            next.setHidden(sourceNode.getHidden());
+            next.setCreatedBy(userId);
+            next.setUpdatedBy(userId);
+            next.setCreatedAt(now);
+            next.setUpdatedAt(now);
+            documentMapper.insert(next);
+
+            Document created = documentMapper.selectById(next.getId());
+            documentSearchService.indexDocument(created);
+            idMap.put(sourceNode.getId(), next.getId());
+        }
+        return true;
+    }
+
+    @Transactional
+    public boolean deleteVersion(String version) {
+        String target = normalizeVersion(version);
+        if (DEFAULT_VERSION.equals(target)) {
+            throw new IllegalArgumentException("Cannot delete default version.");
+        }
+        List<Document> toDelete = documentMapper.listAllByVersion(target);
+        if (toDelete.isEmpty()) {
+            return true;
+        }
+        documentMapper.deleteByVersion(target);
+        for (Document item : toDelete) {
+            documentSearchService.deleteDocument(item.getId());
+        }
+        return true;
     }
 
     @Transactional
@@ -73,16 +166,18 @@ public class DocumentService {
         if (input == null) {
             throw new IllegalArgumentException("Input is required.");
         }
+        String version = normalizeVersion(input.version());
         DocumentNodeType type = input.type() == null ? DocumentNodeType.DOC : input.type();
         String title = safeTitle(input.title());
         String slug = normalizeSlug(input.slug(), title);
-        String path = buildPath(input.parentId(), slug);
+        String path = buildPath(input.parentId(), slug, version);
 
         Document document = new Document();
         document.setParentId(input.parentId());
         document.setType(type);
         document.setTitle(title);
         document.setContent(type == DocumentNodeType.DOC ? input.content() : null);
+        document.setVersion(version);
         document.setPath(path);
         document.setSortOrder(input.sortOrder() == null ? 0 : input.sortOrder());
         document.setHidden(Boolean.TRUE.equals(input.hidden()));
@@ -137,7 +232,7 @@ public class DocumentService {
         Document updated = documentMapper.selectById(id);
         documentSearchService.indexDocument(updated);
         if (pathChanged) {
-            reindexSubtree(updated.getPath());
+            reindexSubtree(updated.getPath(), updated.getVersion());
         }
         return updated;
     }
@@ -153,18 +248,19 @@ public class DocumentService {
         Long newParentId = input.parentId();
         String fallbackSlug = document.getSlug() == null ? document.getTitle() : document.getSlug();
         String slug = normalizeSlug(input.slug(), fallbackSlug);
+        String version = document.getVersion();
 
         String oldPath = document.getPath();
         if (newParentId != null) {
-            long invalid = documentMapper.countDescendantOf(newParentId, oldPath);
+            long invalid = documentMapper.countDescendantOf(newParentId, oldPath, version);
             if (invalid > 0) {
                 throw new IllegalArgumentException("Cannot move a document under its descendant.");
             }
         }
-        String newPath = buildPath(newParentId, slug);
+        String newPath = buildPath(newParentId, slug, version);
 
         if (!Objects.equals(oldPath, newPath)) {
-            documentMapper.updatePathPrefix(oldPath, newPath);
+            documentMapper.updatePathPrefix(oldPath, newPath, version);
             document.setPath(newPath);
         }
 
@@ -177,7 +273,7 @@ public class DocumentService {
         documentMapper.updateById(document);
         Document updated = documentMapper.selectById(id);
         documentSearchService.indexDocument(updated);
-        reindexSubtree(updated.getPath());
+        reindexSubtree(updated.getPath(), version);
         return updated;
     }
 
@@ -203,7 +299,7 @@ public class DocumentService {
         List<Document> subtree = List.of();
         if (document != null) {
             documentRevisionService.recordRevision(document, userId);
-            subtree = documentMapper.listSubtree(document.getPath(), true);
+            subtree = documentMapper.listSubtree(document.getPath(), true, document.getVersion());
         }
         documentMapper.deleteById(id);
         if (subtree.isEmpty()) {
@@ -247,11 +343,11 @@ public class DocumentService {
         return root == null ? List.of() : List.of(root);
     }
 
-    private String buildPath(Long parentId, String slug) {
+    private String buildPath(Long parentId, String slug, String version) {
         if (parentId == null) {
             return slug;
         }
-        String parentPath = documentMapper.findPathById(parentId);
+        String parentPath = documentMapper.findPathByIdAndVersion(parentId, version);
         if (parentPath == null) {
             throw new IllegalArgumentException("Parent document not found: " + parentId);
         }
@@ -261,17 +357,18 @@ public class DocumentService {
     private void renamePath(Document document, String newSlug) {
         String oldPath = document.getPath();
         String basePath;
+        String version = document.getVersion();
         if (document.getParentId() == null) {
             basePath = newSlug;
         } else {
-            String parentPath = documentMapper.findPathById(document.getParentId());
+            String parentPath = documentMapper.findPathByIdAndVersion(document.getParentId(), version);
             if (parentPath == null) {
                 throw new IllegalArgumentException("Parent document not found: " + document.getParentId());
             }
             basePath = parentPath + "." + newSlug;
         }
         if (!Objects.equals(oldPath, basePath)) {
-            documentMapper.updatePathPrefix(oldPath, basePath);
+            documentMapper.updatePathPrefix(oldPath, basePath, version);
             document.setPath(basePath);
         }
     }
@@ -297,11 +394,34 @@ public class DocumentService {
         return normalized;
     }
 
-    private void reindexSubtree(String rootPath) {
+    private String normalizeVersion(String version) {
+        String raw = (version == null || version.isBlank()) ? DEFAULT_VERSION : version;
+        String normalized = raw
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9._-]+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (normalized.isEmpty()) {
+            return DEFAULT_VERSION;
+        }
+        return normalized;
+    }
+
+    private String deriveSlug(String path) {
+        if (path == null || path.isBlank()) {
+            return "node";
+        }
+        int idx = path.lastIndexOf('.');
+        String slug = idx >= 0 ? path.substring(idx + 1) : path;
+        return slug.isBlank() ? "node" : slug;
+    }
+
+    private void reindexSubtree(String rootPath, String version) {
         if (rootPath == null || rootPath.isBlank()) {
             return;
         }
-        List<Document> subtree = documentMapper.listSubtree(rootPath, true);
+        List<Document> subtree = documentMapper.listSubtree(rootPath, true, version);
         for (Document item : subtree) {
             documentSearchService.indexDocument(item);
         }

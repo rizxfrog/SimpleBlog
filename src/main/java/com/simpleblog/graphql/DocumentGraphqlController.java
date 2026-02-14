@@ -36,34 +36,45 @@ public class DocumentGraphqlController {
     }
 
     @QueryMapping
-    public List<Document> documents(@Argument Boolean includeHidden) {
+    public List<Document> documents(@Argument Boolean includeHidden,
+                                    @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.listDocuments(include);
+        return documentService.listDocuments(include, version);
     }
 
     @QueryMapping
-    public List<Document> documentTree(@Argument Long rootId, @Argument Boolean includeHidden) {
+    public List<Document> documentTree(@Argument Long rootId,
+                                       @Argument Boolean includeHidden,
+                                       @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.documentTree(rootId, include);
+        return documentService.documentTree(rootId, include, version);
     }
 
     @QueryMapping
-    public Document document(@Argument Long id, @Argument Boolean includeHidden) {
+    public Document document(@Argument Long id,
+                             @Argument Boolean includeHidden,
+                             @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.findById(id, include);
+        return documentService.findById(id, include, version);
     }
 
     @QueryMapping
     public DocumentSearchPage searchDocuments(@Argument String query,
                                               @Argument int page,
                                               @Argument int size,
-                                              @Argument Boolean includeHidden) {
+                                              @Argument Boolean includeHidden,
+                                              @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.searchDocuments(query, page, size, include);
+        return documentService.searchDocuments(query, page, size, include, version);
+    }
+
+    @QueryMapping
+    public List<String> documentVersions() {
+        return documentService.listVersions();
     }
 
     @PreAuthorize("hasRole('admin')")
@@ -113,6 +124,19 @@ public class DocumentGraphqlController {
     @MutationMapping
     public Boolean deleteDocument(@Argument Long id) {
         return documentService.delete(id, currentUserId());
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean createDocumentVersion(@Argument String sourceVersion,
+                                         @Argument String targetVersion) {
+        return documentService.createVersion(sourceVersion, targetVersion, currentUserId());
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean deleteDocumentVersion(@Argument String version) {
+        return documentService.deleteVersion(version);
     }
 
     private Long currentUserId() {

@@ -1,7 +1,7 @@
 import { createApp, h, provide } from 'vue'
 import { DefaultApolloClient } from '@vue/apollo-composable'
 import { createPinia } from 'pinia'
-import { create, NButton, NConfigProvider, NDataTable, NForm, NFormItem, NInput, NInputNumber, NMenu, NSelect, NSwitch, NTag, NTree } from 'naive-ui'
+import { create, NButton, NConfigProvider, NDataTable, NForm, NFormItem, NInput, NInputNumber, NMenu, NModal, NSelect, NSwitch, NTag, NTree } from 'naive-ui'
 import App from './App.vue'
 import router from './router'
 import { apolloClient } from './apollo'
@@ -17,7 +17,7 @@ const app = createApp({
 
 const pinia = createPinia()
 const naive = create({
-  components: [NButton, NConfigProvider, NDataTable, NForm, NFormItem, NInput, NInputNumber, NMenu, NSelect, NSwitch, NTag, NTree]
+  components: [NButton, NConfigProvider, NDataTable, NForm, NFormItem, NInput, NInputNumber, NMenu, NModal, NSelect, NSwitch, NTag, NTree]
 })
 
 app.use(pinia)

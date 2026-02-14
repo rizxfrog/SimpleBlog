@@ -1,14 +1,22 @@
 <template>
 	<div class="container docs-shell">
-		<aside class="card docs-tree">
-			<div class="docs-tree-header">
-				<h3>Docs</h3>
-				<span v-if="loading" class="docs-loading">Loading</span>
-			</div>
-			<div class="docs-search">
-				<input v-model="searchText" type="text" class="docs-search-input" placeholder="Search documents..." />
-				<button v-if="searchQuery" class="docs-search-clear" type="button" @click="clearSearch">Clear</button>
-			</div>
+			<aside class="card docs-tree">
+				<div class="docs-tree-header">
+					<h3>Docs</h3>
+					<span v-if="loading" class="docs-loading">Loading</span>
+				</div>
+				<div class="docs-version">
+					<n-select
+						:value="activeVersion"
+						:options="versionOptions"
+						size="small"
+						@update:value="onVersionChange"
+					/>
+				</div>
+				<div class="docs-search">
+					<input v-model="searchText" type="text" class="docs-search-input" placeholder="Search documents..." />
+					<button v-if="searchQuery" class="docs-search-clear" type="button" @click="clearSearch">Clear</button>
+				</div>
 			<div v-if="showEmpty" class="docs-empty">{{ emptyText }}</div>
 			<n-tree
 				v-else
@@ -91,6 +99,7 @@ type DocumentNode = {
 	title: string;
 	parentId: number | null;
 	type: 'FOLDER' | 'DOC';
+	version?: string;
 	path: string;
 	sortOrder: number;
 	hidden: boolean;
@@ -103,60 +112,86 @@ type DocTreeOption = TreeOption & {
 	content?: string;
 };
 
+function normalizeVersion(value?: string | null) {
+	const raw = (value ?? '').trim().toLowerCase();
+	if (!raw) {
+		return 'default';
+	}
+	const normalized = raw
+		.replace(/[^a-z0-9._-]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return normalized || 'default';
+}
+
 const route = useRoute();
 const router = useRouter();
 const selectedId = computed(() => (route.params.id ? Number(route.params.id) : null));
 const activeQuery = computed(() => (route.query.q ? String(route.query.q) : ''));
+const defaultVersion = 'default';
+const activeVersion = computed(() => normalizeVersion(route.query.v ? String(route.query.v) : defaultVersion));
 const searchText = ref('');
 const searchQuery = ref('');
 let searchTimer: number | null = null;
 
-const { result, loading } = useQuery(gql`
-	query Documents {
-		documents {
-			id
-			title
-			parentId
-			type
-			path
-			sortOrder
-			hidden
-			depth
-		}
+const { result: versionsResult } = useQuery(gql`
+	query DocumentVersions {
+		documentVersions
 	}
 `);
 
+const { result, loading } = useQuery(
+	gql`
+		query Documents($version: String!) {
+			documents(version: $version) {
+				id
+				title
+				parentId
+				type
+				version
+				path
+				sortOrder
+				hidden
+				depth
+			}
+		}
+	`,
+	() => ({ version: activeVersion.value })
+);
+
 const { result: docResult } = useQuery(
 	gql`
-		query Document($id: ID!) {
-			document(id: $id) {
+		query Document($id: ID!, $version: String!) {
+			document(id: $id, version: $version) {
 				id
 				title
 				content
 				type
+				version
 			}
 		}
 	`,
-	() => ({ id: selectedId.value }),
+	() => ({ id: selectedId.value, version: activeVersion.value }),
 	{ enabled: computed(() => !!selectedId.value) }
 );
 
 const { result: searchResult, loading: searchLoading } = useQuery(
 	gql`
-		query SearchDocuments($query: String!, $page: Int!, $size: Int!) {
-			searchDocuments(query: $query, page: $page, size: $size) {
+		query SearchDocuments($query: String!, $page: Int!, $size: Int!, $version: String!) {
+			searchDocuments(query: $query, page: $page, size: $size, version: $version) {
 				items {
 					id
 					title
 					type
 					hidden
 					path
+					version
 				}
 				total
 			}
 		}
 	`,
-	() => ({ query: searchQuery.value, page: 1, size: 50 }),
+	() => ({ query: searchQuery.value, page: 1, size: 50, version: activeVersion.value }),
 	{ enabled: computed(() => searchQuery.value.trim().length > 0) }
 );
 
@@ -208,6 +243,22 @@ const treeOptions = computed<DocTreeOption[]>(() => {
 	}
 	return buildTreeOptions(tree.value);
 });
+const versionList = computed(() => {
+	const raw: string[] = versionsResult.value?.documentVersions ?? [];
+	const set = new Set<string>([defaultVersion]);
+	raw.forEach(value => {
+		const normalized = normalizeVersion(value);
+		if (normalized) {
+			set.add(normalized);
+		}
+	});
+	const values = Array.from(set).sort();
+	return [defaultVersion, ...values.filter(value => value !== defaultVersion)];
+});
+const versionOptions = computed(() => versionList.value.map(value => ({
+	label: value,
+	value
+})));
 
 const showEmpty = computed(() => {
 	if (searchQuery.value.trim()) {
@@ -230,29 +281,44 @@ const showToc = computed(() => {
 	return headingCount >= 2 && length >= 800;
 });
 
-const selectNode = (node: DocumentNode) => {
-	if (searchQuery.value.trim()) {
-		router.push({ path: `/docs/${node.id}`, query: { q: searchQuery.value.trim() } });
-	} else {
-		router.push(`/docs/${node.id}`);
+const buildRouteQuery = (includeSearch: boolean) => {
+	const query: Record<string, string> = {};
+	if (activeVersion.value !== defaultVersion) {
+		query.v = activeVersion.value;
 	}
+	if (includeSearch && searchQuery.value.trim()) {
+		query.q = searchQuery.value.trim();
+	}
+	return query;
+};
+
+const onVersionChange = (value: string | number) => {
+	const next = normalizeVersion(String(value));
+	const query: Record<string, string> = {};
+	if (next !== defaultVersion) {
+		query.v = next;
+	}
+	if (searchQuery.value.trim()) {
+		query.q = searchQuery.value.trim();
+	}
+	router.push({ path: '/docs', query });
+};
+
+const selectNode = (node: DocumentNode) => {
+	router.push({ path: `/docs/${node.id}`, query: buildRouteQuery(true) });
 };
 
 const onSelect = (keys: Array<string | number>) => {
 	const next = keys.length ? Number(keys[0]) : null;
 	if (next) {
-		const node = displayNodes.value.find(item => item.id === next);
-		if (node) {
-			selectNode(node);
-			return;
+			const node = displayNodes.value.find(item => item.id === next);
+			if (node) {
+				selectNode(node);
+				return;
+			}
+			router.push({ path: `/docs/${next}`, query: buildRouteQuery(true) });
 		}
-		if (searchQuery.value.trim()) {
-			router.push({ path: `/docs/${next}`, query: { q: searchQuery.value.trim() } });
-		} else {
-			router.push(`/docs/${next}`);
-		}
-	}
-};
+	};
 
 const renderLabel = (info: { option: DocTreeOption }) => {
 	const option = info.option;
@@ -276,7 +342,7 @@ const ensureDefaultSelection = () => {
 	}
 	const firstDoc = flatNodes.value.find(node => node.type === 'DOC') ?? flatNodes.value[0];
 	if (firstDoc) {
-		router.replace(`/docs/${firstDoc.id}`);
+		router.replace({ path: `/docs/${firstDoc.id}`, query: buildRouteQuery(false) });
 	}
 };
 
@@ -292,6 +358,7 @@ const scheduleSearch = () => {
 const clearSearch = () => {
 	searchText.value = '';
 	searchQuery.value = '';
+	router.replace({ path: route.path, query: buildRouteQuery(false) });
 };
 
 const renderMarkdown = async (content: string | undefined) => {
@@ -580,7 +647,7 @@ watch(
 	() => searchQuery.value,
 	value => {
 		if (!value.trim()) {
-			router.replace({ query: {} });
+			router.replace({ path: route.path, query: buildRouteQuery(false) });
 		}
 	}
 );
@@ -590,6 +657,20 @@ watch(
 		if (!doc.value?.content) return;
 		highlightSearchMatches(query);
 	}
+);
+watch(
+	() => versionList.value,
+	(list) => {
+		if (list.includes(activeVersion.value)) {
+			return;
+		}
+		const fallbackQuery: Record<string, string> = {};
+		if (searchQuery.value.trim()) {
+			fallbackQuery.q = searchQuery.value.trim();
+		}
+		router.replace({ path: route.path, query: fallbackQuery });
+	},
+	{ immediate: true }
 );
 watch(() => searchText.value, scheduleSearch);
 
@@ -632,6 +713,10 @@ onBeforeUnmount(() => {
 
 .docs-tree-header h3 {
 	margin: 0;
+}
+
+.docs-version {
+	margin-bottom: 10px;
 }
 
 .docs-search {

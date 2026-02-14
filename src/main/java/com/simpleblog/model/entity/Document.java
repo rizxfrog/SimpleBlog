@@ -26,6 +26,9 @@ public class Document {
 
     private String content;
 
+    @TableField("doc_version")
+    private String version;
+
     @TableField(value = "path", typeHandler = LtreeTypeHandler.class)
     private String path;
 
@@ -94,6 +97,17 @@ public class Document {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getVersion() {
+        if (version == null || version.isBlank()) {
+            return "default";
+        }
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
     }
 
     public String getPath() {
