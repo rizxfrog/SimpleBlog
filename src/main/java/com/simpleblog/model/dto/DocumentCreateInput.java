@@ -8,6 +8,7 @@ public record DocumentCreateInput(String title,
                                   Integer sortOrder,
                                   Boolean hidden,
                                   String slug,
+                                  String project,
                                   String version,
                                   DocumentNodeType type) {
 }

@@ -37,6 +37,7 @@ public class DocumentSearchService {
         doc.setId(document.getId());
         doc.setTitle(document.getTitle());
         doc.setContent(document.getContent());
+        doc.setProject(document.getProject());
         doc.setVersion(document.getVersion());
         doc.setPath(document.getPath());
         doc.setType(document.getType() == null ? null : document.getType().getValue());
@@ -53,7 +54,12 @@ public class DocumentSearchService {
         documentSearchRepository.deleteById(documentId);
     }
 
-    public DocumentSearchPage search(String query, int page, int size, boolean includeHidden, String version) {
+    public DocumentSearchPage search(String query,
+                                     int page,
+                                     int size,
+                                     boolean includeHidden,
+                                     String project,
+                                     String version) {
         String normalized = query == null ? "" : query.trim();
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
@@ -70,6 +76,7 @@ public class DocumentSearchService {
         var boolQuery = QueryBuilders.bool(b -> {
             b.must(matchQuery);
             b.filter(QueryBuilders.term(t -> t.field("type").value(DocumentNodeType.DOC.getValue())));
+            b.filter(QueryBuilders.term(t -> t.field("doc_project").value(project)));
             b.filter(QueryBuilders.term(t -> t.field("doc_version").value(version)));
             if (!includeHidden) {
                 b.filter(QueryBuilders.term(t -> t.field("is_hidden").value(false)));
@@ -90,6 +97,7 @@ public class DocumentSearchService {
             doc.setId(source.getId());
             doc.setTitle(buildHighlight(source.getTitle(), normalized));
             doc.setContent(snippetHighlight(source.getContent(), normalized, 160));
+            doc.setProject(source.getProject());
             doc.setVersion(source.getVersion());
             doc.setPath(source.getPath());
             doc.setHidden(Boolean.TRUE.equals(source.getHidden()));

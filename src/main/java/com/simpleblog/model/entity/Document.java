@@ -26,6 +26,9 @@ public class Document {
 
     private String content;
 
+    @TableField("doc_project")
+    private String project;
+
     @TableField("doc_version")
     private String version;
 
@@ -97,6 +100,17 @@ public class Document {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getProject() {
+        if (project == null || project.isBlank()) {
+            return "default";
+        }
+        return project;
+    }
+
+    public void setProject(String project) {
+        this.project = project;
     }
 
     public String getVersion() {

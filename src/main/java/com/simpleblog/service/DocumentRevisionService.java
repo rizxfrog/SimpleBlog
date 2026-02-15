@@ -58,28 +58,33 @@ public class DocumentRevisionService {
         document.setType(type);
         document.setHidden(revision.getHidden());
         document.setSortOrder(revision.getSortOrder());
+        document.setProject(revision.getProject());
+        document.setVersion(revision.getVersion());
 
         Long parentId = revision.getParentId();
         String path = revision.getPath();
         if (parentId != null) {
             Document parent = documentMapper.selectById(parentId);
-            if (parent == null || !document.getVersion().equals(parent.getVersion())) {
+            if (parent == null
+                    || !document.getProject().equals(parent.getProject())
+                    || !document.getVersion().equals(parent.getVersion())) {
                 parentId = null;
                 path = normalizeRootPath(path);
             }
         }
 
+        String project = document.getProject();
         String version = document.getVersion();
-        String uniquePath = ensureUniquePath(path, document.getId(), version);
+        String uniquePath = ensureUniquePath(path, document.getId(), project, version);
         if (oldPath != null && !oldPath.equals(uniquePath)) {
-            documentMapper.updatePathPrefix(oldPath, uniquePath, version);
+            documentMapper.updatePathPrefix(oldPath, uniquePath, project, version);
         }
         document.setParentId(parentId);
         document.setPath(uniquePath);
         document.setUpdatedBy(userId);
         document.setUpdatedAt(LocalDateTime.now());
         documentMapper.updateById(document);
-        reindexSubtree(uniquePath, version);
+        reindexSubtree(uniquePath, project, version);
         return document;
     }
 
@@ -93,6 +98,7 @@ public class DocumentRevisionService {
         revision.setType(document.getType());
         revision.setTitle(document.getTitle());
         revision.setContent(document.getContent());
+        revision.setProject(document.getProject());
         revision.setVersion(document.getVersion());
         revision.setPath(document.getPath());
         revision.setParentId(document.getParentId());
@@ -112,27 +118,27 @@ public class DocumentRevisionService {
         return slug.isBlank() ? "restored" : slug;
     }
 
-    private String ensureUniquePath(String basePath, Long documentId, String version) {
+    private String ensureUniquePath(String basePath, Long documentId, String project, String version) {
         if (basePath == null || basePath.isBlank()) {
             basePath = "restored";
         }
-        if (documentMapper.countByPathExcludingId(basePath, documentId, version) == 0) {
+        if (documentMapper.countByPathExcludingId(basePath, documentId, project, version) == 0) {
             return basePath;
         }
         String candidate = basePath;
         int suffix = 2;
-        while (documentMapper.countByPathExcludingId(candidate, documentId, version) > 0) {
+        while (documentMapper.countByPathExcludingId(candidate, documentId, project, version) > 0) {
             candidate = basePath + "_r" + suffix;
             suffix += 1;
         }
         return candidate;
     }
 
-    private void reindexSubtree(String rootPath, String version) {
+    private void reindexSubtree(String rootPath, String project, String version) {
         if (rootPath == null || rootPath.isBlank()) {
             return;
         }
-        List<Document> subtree = documentMapper.listSubtree(rootPath, true, version);
+        List<Document> subtree = documentMapper.listSubtree(rootPath, true, project, version);
         for (Document item : subtree) {
             documentSearchService.indexDocument(item);
         }

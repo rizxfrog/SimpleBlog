@@ -12,13 +12,14 @@ type Query {
   tags: [Tag!]!
   comments(blogId: ID!): [Comment!]!
   adminComments(blogId: ID, status: CommentStatus, keyword: String): [Comment!]!
-  documents(includeHidden: Boolean = false, version: String = "default"): [Document!]!
-  documentTree(rootId: ID, includeHidden: Boolean = false, version: String = "default"): [Document!]!
-  document(id: ID!, includeHidden: Boolean = false, version: String = "default"): Document
-  searchDocuments(query: String!, page: Int!, size: Int!, includeHidden: Boolean = false, version: String = "default"): DocumentSearchPage!
+  documents(includeHidden: Boolean = false, project: String = "default", version: String = "default"): [Document!]!
+  documentTree(rootId: ID, includeHidden: Boolean = false, project: String = "default", version: String = "default"): [Document!]!
+  document(id: ID!, includeHidden: Boolean = false, project: String = "default", version: String = "default"): Document
+  searchDocuments(query: String!, page: Int!, size: Int!, includeHidden: Boolean = false, project: String = "default", version: String = "default"): DocumentSearchPage!
+  documentProjects: [String!]!
   documentRevisions(documentId: ID!): [DocumentRevision!]!
   documentRevision(id: ID!): DocumentRevision
-  documentVersions: [String!]!
+  documentVersions(project: String = "default"): [String!]!
 }
 
 type Mutation {
@@ -43,8 +44,10 @@ type Mutation {
   toggleDocumentHidden(id: ID!, hidden: Boolean!): Document!
   deleteDocument(id: ID!): Boolean!
   restoreDocumentRevision(revisionId: ID!): Document!
-  createDocumentVersion(sourceVersion: String = "default", targetVersion: String!): Boolean!
-  deleteDocumentVersion(version: String!): Boolean!
+  createDocumentVersion(project: String = "default", sourceVersion: String = "default", targetVersion: String!): Boolean!
+  deleteDocumentVersion(project: String = "default", version: String!): Boolean!
+  createDocumentProject(sourceProject: String = "default", targetProject: String!): Boolean!
+  deleteDocumentProject(project: String!): Boolean!
 }
 
 type AuthPayload {
@@ -101,6 +104,7 @@ input DocumentCreateInput {
   sortOrder: Int
   hidden: Boolean
   slug: String
+  project: String
   version: String
   type: DocumentNodeType
 }
@@ -182,6 +186,7 @@ type Document {
   id: ID!
   title: String!
   content: String
+  project: String!
   version: String!
   parentId: ID
   type: DocumentNodeType!
@@ -201,6 +206,7 @@ type DocumentRevision {
   type: DocumentNodeType!
   title: String!
   content: String
+  project: String!
   version: String!
   path: String!
   parentId: ID

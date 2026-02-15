@@ -7,6 +7,14 @@
 				</div>
 				<div class="docs-version">
 					<n-select
+						:value="activeProject"
+						:options="projectOptions"
+						size="small"
+						@update:value="onProjectChange"
+					/>
+				</div>
+				<div class="docs-version">
+					<n-select
 						:value="activeVersion"
 						:options="versionOptions"
 						size="small"
@@ -99,6 +107,7 @@ type DocumentNode = {
 	title: string;
 	parentId: number | null;
 	type: 'FOLDER' | 'DOC';
+	project?: string;
 	version?: string;
 	path: string;
 	sortOrder: number;
@@ -124,30 +133,54 @@ function normalizeVersion(value?: string | null) {
 	return normalized || 'default';
 }
 
+function normalizeProject(value?: string | null) {
+	const raw = (value ?? '').trim().toLowerCase();
+	if (!raw) {
+		return 'default';
+	}
+	const normalized = raw
+		.replace(/[^a-z0-9._-]+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return normalized || 'default';
+}
+
 const route = useRoute();
 const router = useRouter();
 const selectedId = computed(() => (route.params.id ? Number(route.params.id) : null));
 const activeQuery = computed(() => (route.query.q ? String(route.query.q) : ''));
+const defaultProject = 'default';
 const defaultVersion = 'default';
+const activeProject = computed(() => normalizeProject(route.query.p ? String(route.query.p) : defaultProject));
 const activeVersion = computed(() => normalizeVersion(route.query.v ? String(route.query.v) : defaultVersion));
 const searchText = ref('');
 const searchQuery = ref('');
 let searchTimer: number | null = null;
 
-const { result: versionsResult } = useQuery(gql`
-	query DocumentVersions {
-		documentVersions
+const { result: projectsResult } = useQuery(gql`
+	query DocumentProjects {
+		documentProjects
 	}
 `);
 
+const { result: versionsResult } = useQuery(
+	gql`
+		query DocumentVersions($project: String!) {
+			documentVersions(project: $project)
+		}
+	`,
+	() => ({ project: activeProject.value })
+);
+
 const { result, loading } = useQuery(
 	gql`
-		query Documents($version: String!) {
-			documents(version: $version) {
+		query Documents($project: String!, $version: String!) {
+			documents(project: $project, version: $version) {
 				id
 				title
 				parentId
 				type
+				project
 				version
 				path
 				sortOrder
@@ -156,42 +189,44 @@ const { result, loading } = useQuery(
 			}
 		}
 	`,
-	() => ({ version: activeVersion.value })
+	() => ({ project: activeProject.value, version: activeVersion.value })
 );
 
 const { result: docResult } = useQuery(
 	gql`
-		query Document($id: ID!, $version: String!) {
-			document(id: $id, version: $version) {
+		query Document($id: ID!, $project: String!, $version: String!) {
+			document(id: $id, project: $project, version: $version) {
 				id
 				title
 				content
 				type
+				project
 				version
 			}
 		}
 	`,
-	() => ({ id: selectedId.value, version: activeVersion.value }),
+	() => ({ id: selectedId.value, project: activeProject.value, version: activeVersion.value }),
 	{ enabled: computed(() => !!selectedId.value) }
 );
 
 const { result: searchResult, loading: searchLoading } = useQuery(
 	gql`
-		query SearchDocuments($query: String!, $page: Int!, $size: Int!, $version: String!) {
-			searchDocuments(query: $query, page: $page, size: $size, version: $version) {
+		query SearchDocuments($query: String!, $page: Int!, $size: Int!, $project: String!, $version: String!) {
+			searchDocuments(query: $query, page: $page, size: $size, project: $project, version: $version) {
 				items {
 					id
 					title
 					type
 					hidden
 					path
+					project
 					version
 				}
 				total
 			}
 		}
 	`,
-	() => ({ query: searchQuery.value, page: 1, size: 50, version: activeVersion.value }),
+	() => ({ query: searchQuery.value, page: 1, size: 50, project: activeProject.value, version: activeVersion.value }),
 	{ enabled: computed(() => searchQuery.value.trim().length > 0) }
 );
 
@@ -210,13 +245,15 @@ const doc = computed(() => docResult.value?.document ?? null);
 const selectedKeys = computed(() => (selectedId.value ? [selectedId.value] : []));
 const searchItems = computed<DocumentNode[]>(() => {
 	const items = searchResult.value?.searchDocuments?.items ?? [];
-	return items.map((item: any) => ({
-		id: Number(item.id),
-		title: item.title,
-		parentId: null,
-		type: item.type,
-		path: item.path,
-		sortOrder: 0,
+		return items.map((item: any) => ({
+			id: Number(item.id),
+			title: item.title,
+			parentId: null,
+			type: item.type,
+			project: item.project,
+			version: item.version,
+			path: item.path,
+			sortOrder: 0,
 		hidden: Boolean(item.hidden),
 		depth: 0,
 		children: [],
@@ -243,6 +280,22 @@ const treeOptions = computed<DocTreeOption[]>(() => {
 	}
 	return buildTreeOptions(tree.value);
 });
+const projectList = computed(() => {
+	const raw: string[] = projectsResult.value?.documentProjects ?? [];
+	const set = new Set<string>([defaultProject]);
+	raw.forEach(value => {
+		const normalized = normalizeProject(value);
+		if (normalized) {
+			set.add(normalized);
+		}
+	});
+	const values = Array.from(set).sort();
+	return [defaultProject, ...values.filter(value => value !== defaultProject)];
+});
+const projectOptions = computed(() => projectList.value.map(value => ({
+	label: value,
+	value
+})));
 const versionList = computed(() => {
 	const raw: string[] = versionsResult.value?.documentVersions ?? [];
 	const set = new Set<string>([defaultVersion]);
@@ -283,6 +336,9 @@ const showToc = computed(() => {
 
 const buildRouteQuery = (includeSearch: boolean) => {
 	const query: Record<string, string> = {};
+	if (activeProject.value !== defaultProject) {
+		query.p = activeProject.value;
+	}
 	if (activeVersion.value !== defaultVersion) {
 		query.v = activeVersion.value;
 	}
@@ -292,9 +348,24 @@ const buildRouteQuery = (includeSearch: boolean) => {
 	return query;
 };
 
+const onProjectChange = (value: string | number) => {
+	const nextProject = normalizeProject(String(value));
+	const query: Record<string, string> = {};
+	if (nextProject !== defaultProject) {
+		query.p = nextProject;
+	}
+	if (searchQuery.value.trim()) {
+		query.q = searchQuery.value.trim();
+	}
+	router.push({ path: '/docs', query });
+};
+
 const onVersionChange = (value: string | number) => {
 	const next = normalizeVersion(String(value));
 	const query: Record<string, string> = {};
+	if (activeProject.value !== defaultProject) {
+		query.p = activeProject.value;
+	}
 	if (next !== defaultVersion) {
 		query.v = next;
 	}
@@ -659,12 +730,29 @@ watch(
 	}
 );
 watch(
+	() => projectList.value,
+	(list) => {
+		if (list.includes(activeProject.value)) {
+			return;
+		}
+		const fallbackQuery: Record<string, string> = {};
+		if (searchQuery.value.trim()) {
+			fallbackQuery.q = searchQuery.value.trim();
+		}
+		router.replace({ path: route.path, query: fallbackQuery });
+	},
+	{ immediate: true }
+);
+watch(
 	() => versionList.value,
 	(list) => {
 		if (list.includes(activeVersion.value)) {
 			return;
 		}
 		const fallbackQuery: Record<string, string> = {};
+		if (activeProject.value !== defaultProject) {
+			fallbackQuery.p = activeProject.value;
+		}
 		if (searchQuery.value.trim()) {
 			fallbackQuery.q = searchQuery.value.trim();
 		}

@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/admin/posts', name: 'admin-posts', component: () => import('../views/AdminPosts.vue') },
     { path: '/admin/comments', name: 'admin-comments', component: () => import('../views/AdminComments.vue') },
     { path: '/admin/docs', name: 'admin-docs', component: () => import('../views/AdminDocs.vue') },
+    { path: '/admin/docs/edit', name: 'admin-docs-edit', component: () => import('../views/AdminDocsEditor.vue') },
     { path: '/admin/editor/:id?', name: 'editor', component: () => import('../views/AdminEditor.vue'), props: true },
     { path: '/admin/settings', name: 'admin-settings', component: () => import('../views/AdminSettings.vue') }
   ]

@@ -37,28 +37,31 @@ public class DocumentGraphqlController {
 
     @QueryMapping
     public List<Document> documents(@Argument Boolean includeHidden,
+                                    @Argument String project,
                                     @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.listDocuments(include, version);
+        return documentService.listDocuments(include, project, version);
     }
 
     @QueryMapping
     public List<Document> documentTree(@Argument Long rootId,
                                        @Argument Boolean includeHidden,
+                                       @Argument String project,
                                        @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.documentTree(rootId, include, version);
+        return documentService.documentTree(rootId, include, project, version);
     }
 
     @QueryMapping
     public Document document(@Argument Long id,
                              @Argument Boolean includeHidden,
+                             @Argument String project,
                              @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.findById(id, include, version);
+        return documentService.findById(id, include, project, version);
     }
 
     @QueryMapping
@@ -66,15 +69,21 @@ public class DocumentGraphqlController {
                                               @Argument int page,
                                               @Argument int size,
                                               @Argument Boolean includeHidden,
+                                              @Argument String project,
                                               @Argument String version) {
         boolean allowHidden = isAdmin();
         boolean include = allowHidden && Boolean.TRUE.equals(includeHidden);
-        return documentService.searchDocuments(query, page, size, include, version);
+        return documentService.searchDocuments(query, page, size, include, project, version);
     }
 
     @QueryMapping
-    public List<String> documentVersions() {
-        return documentService.listVersions();
+    public List<String> documentProjects() {
+        return documentService.listProjects();
+    }
+
+    @QueryMapping
+    public List<String> documentVersions(@Argument String project) {
+        return documentService.listVersions(project);
     }
 
     @PreAuthorize("hasRole('admin')")
@@ -129,14 +138,29 @@ public class DocumentGraphqlController {
     @PreAuthorize("hasRole('admin')")
     @MutationMapping
     public Boolean createDocumentVersion(@Argument String sourceVersion,
+                                         @Argument String project,
                                          @Argument String targetVersion) {
-        return documentService.createVersion(sourceVersion, targetVersion, currentUserId());
+        return documentService.createVersion(project, sourceVersion, targetVersion, currentUserId());
     }
 
     @PreAuthorize("hasRole('admin')")
     @MutationMapping
-    public Boolean deleteDocumentVersion(@Argument String version) {
-        return documentService.deleteVersion(version);
+    public Boolean deleteDocumentVersion(@Argument String project,
+                                         @Argument String version) {
+        return documentService.deleteVersion(project, version);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean createDocumentProject(@Argument String sourceProject,
+                                         @Argument String targetProject) {
+        return documentService.createProject(sourceProject, targetProject, currentUserId());
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @MutationMapping
+    public Boolean deleteDocumentProject(@Argument String project) {
+        return documentService.deleteProject(project);
     }
 
     private Long currentUserId() {

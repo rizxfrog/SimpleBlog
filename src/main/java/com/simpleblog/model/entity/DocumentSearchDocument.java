@@ -18,6 +18,9 @@ public class DocumentSearchDocument {
     @Field(type = FieldType.Text)
     private String content;
 
+    @Field(type = FieldType.Keyword, name = "doc_project")
+    private String project;
+
     @Field(type = FieldType.Keyword, name = "doc_version")
     private String version;
 
@@ -58,6 +61,14 @@ public class DocumentSearchDocument {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getProject() {
+        return project;
+    }
+
+    public void setProject(String project) {
+        this.project = project;
     }
 
     public String getVersion() {
