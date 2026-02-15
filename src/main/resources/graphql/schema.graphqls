@@ -20,6 +20,14 @@ type Query {
   documentRevisions(documentId: ID!): [DocumentRevision!]!
   documentRevision(id: ID!): DocumentRevision
   documentVersions(project: String = "default"): [String!]!
+  docSpaces: [DocSpace!]!
+  docSpace(id: ID!): DocSpace
+  docTree(spaceId: ID!, includeDeleted: Boolean = false): [DocNode!]!
+  docNode(id: ID!): DocNode
+  docRepo(nodeId: ID!): DocRepo
+  docRefs(docId: ID!): [DocRef!]!
+  docLatestCommit(docId: ID!, refName: String = "refs/heads/main"): DocCommit
+  docCommitHistory(docId: ID!, refName: String = "refs/heads/main", maxDepth: Int = 50): [DocCommit!]!
 }
 
 type Mutation {
@@ -48,6 +56,17 @@ type Mutation {
   deleteDocumentVersion(project: String = "default", version: String!): Boolean!
   createDocumentProject(sourceProject: String = "default", targetProject: String!): Boolean!
   deleteDocumentProject(project: String!): Boolean!
+  createDocSpace(name: String!): DocSpace!
+  renameDocSpace(id: ID!, name: String!): DocSpace!
+  deleteDocSpace(id: ID!): Boolean!
+  createDocNode(input: DocNodeCreateInput!): DocNode!
+  updateDocNode(id: ID!, input: DocNodeUpdateInput!): DocNode!
+  moveDocNode(id: ID!, input: DocNodeMoveInput!): DocNode!
+  deleteDocNode(id: ID!): Boolean!
+  createDocRef(docId: ID!, refName: String!, fromCommitId: ID!): DocRef!
+  deleteDocRef(docId: ID!, refName: String!): Boolean!
+  commitDoc(input: DocCommitInput!): DocCommit!
+  mergeDoc(input: DocMergeInput!): DocCommit!
 }
 
 type AuthPayload {
@@ -97,6 +116,11 @@ enum DocumentNodeType {
   DOC
 }
 
+enum DocRefType {
+  BRANCH
+  TAG
+}
+
 input DocumentCreateInput {
   title: String!
   content: String
@@ -122,6 +146,45 @@ input DocumentMoveInput {
   parentId: ID
   sortOrder: Int
   slug: String
+}
+
+input DocNodeCreateInput {
+  spaceId: ID!
+  parentId: ID
+  nodeType: DocumentNodeType!
+  title: String!
+  sortKey: Int
+  contentMd: String
+}
+
+input DocNodeUpdateInput {
+  title: String
+  sortKey: Int
+  deleted: Boolean
+}
+
+input DocNodeMoveInput {
+  parentId: ID
+  sortKey: Int
+}
+
+input DocCommitInput {
+  docId: ID!
+  refName: String = "refs/heads/main"
+  baseCommitId: ID
+  title: String!
+  contentMd: String!
+  message: String
+}
+
+input DocMergeInput {
+  docId: ID!
+  targetRef: String!
+  sourceRef: String!
+  targetBaseCommitId: ID
+  title: String!
+  contentMd: String!
+  message: String
 }
 
 type BlogPage {
@@ -198,6 +261,58 @@ type Document {
   depth: Int!
   slug: String
   children: [Document!]!
+}
+
+type DocSpace {
+  id: ID!
+  name: String!
+  createAt: DateTime!
+  updateAt: DateTime!
+  deleteAt: DateTime
+}
+
+type DocNode {
+  id: ID!
+  spaceId: ID!
+  parentId: ID
+  nodeType: DocumentNodeType!
+  title: String!
+  sortKey: Int!
+  deleted: Boolean!
+  createAt: DateTime!
+  updateAt: DateTime!
+  docId: ID
+  children: [DocNode!]!
+}
+
+type DocRepo {
+  id: ID!
+  nodeId: ID!
+  defaultBranch: String!
+  aclMode: String!
+  createAt: DateTime!
+  updateAt: DateTime!
+}
+
+type DocRef {
+  docId: ID!
+  refName: String!
+  commitId: ID!
+  refType: DocRefType!
+  updateAt: DateTime!
+}
+
+type DocCommit {
+  id: ID!
+  docId: ID!
+  commitHash: String!
+  authorId: ID
+  message: String!
+  createAt: DateTime!
+  title: String!
+  contentMd: String!
+  contentHash: String!
+  depth: Int
 }
 
 type DocumentRevision {

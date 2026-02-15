@@ -9,9 +9,30 @@
 -- diff：一般不存（需要时计算），也可存 patch（可选）
 
 start transaction isolation level serializable;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+create extension if not exists pgcrypto;
+
+-- 复用 update_at 字段的通用触发器
+create or replace function update_modified_column()
+returns trigger as $$
+begin
+    new.update_at = current_timestamp;
+    return new;
+end;
+$$ language plpgsql;
+
+do $$
+begin
+    if not exists (select 1 from pg_type where typname = 'doc_node_type') then
+        create type doc_node_type as enum ('folder', 'doc');
+    end if;
+    if not exists (select 1 from pg_type where typname = 'doc_ref_type') then
+        create type doc_ref_type as enum ('branch', 'tag');
+    end if;
+end $$;
+
 -- 1) 文档空间/项目
-create table if not exists doc_space(
+create table doc_space(
     id bigserial primary key,
     name varchar(100) not null,
     create_at timestamptz not null default current_timestamp,
@@ -20,87 +41,149 @@ create table if not exists doc_space(
 );
 comment on table doc_space is '文档空间';
 comment on column doc_space.name is '文档空间名';
-create trigger update_doc_space_modtime -- 更新[更新时间]
+drop trigger if exists update_doc_space_modtime on doc_space;
+create trigger update_doc_space_modtime
     before update on doc_space
     for each row execute function update_modified_column();
 
 -- 2) 目录树节点（folder / doc）
--- create type doc_node_type as enum ('folder', 'doc');
 create table doc_node (
-      id bigserial primary key,
-      space_id bigint not null references doc_space(id),
-      parent_id bigint references doc_node(id),
-      node_type doc_node_type not null,
-      title varchar(100) not null,
-      sort_key int not null default 0,  -- 排序，越小越优先
-      is_deleted boolean not null default false,
-      create_at timestamptz not null default now(),
-      update_at timestamptz not null default now()
+    id bigserial primary key,
+    space_id bigint not null references doc_space(id) on delete cascade,
+    parent_id bigint,
+    node_type doc_node_type not null,
+    title varchar(100) not null,
+    sort_key int not null default 0,  -- 排序，越小越优先
+    is_deleted boolean not null default false,
+    create_at timestamptz not null default now(),
+    update_at timestamptz not null default now(),
+    unique (space_id, id),
+    check (parent_id is null or parent_id <> id)
 );
-create index idx_doc_node_space_parent_sort
+alter table doc_node drop constraint if exists doc_node_parent_id_fkey;
+alter table doc_node drop constraint if exists fk_doc_node_parent_in_space;
+alter table doc_node
+    add constraint fk_doc_node_parent_in_space
+    foreign key (space_id, parent_id) references doc_node(space_id, id);
+
+create index if not exists idx_doc_node_space_parent_sort
     on doc_node(space_id, parent_id, sort_key, id);
+drop trigger if exists update_doc_node_modtime on doc_node;
 create trigger update_doc_node_modtime
     before update on doc_node
     for each row execute function update_modified_column();
 
--- 3) “文档 repo”：doc
+-- 3) 文档 repo：doc
 create table doc (
     id bigserial primary key,
-    node_id bigint not null unique references doc_node(id) on delete cascade,   -- 当父表中的记录被删除时，自动删除子表中所有相关的记录。
-    default_branch varchar(30) not null default 'main',
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
+    node_id bigint not null unique references doc_node(id) on delete cascade,
+    default_branch varchar(100) not null default 'refs/heads/main',
+    acl_mode text not null default 'inherit'
+        check (acl_mode in ('inherit', 'override')),
+    create_at timestamptz not null default now(),
+    update_at timestamptz not null default now()
 );
+drop trigger if exists update_doc_modtime on doc;
 create trigger update_doc_modtime
     before update on doc
     for each row execute function update_modified_column();
 
+create or replace function ensure_doc_node_type_doc()
+returns trigger as $$
+begin
+    if not exists (
+        select 1
+        from doc_node n
+        where n.id = new.node_id
+          and n.node_type = 'doc'
+    ) then
+        raise exception 'doc.node_id % must reference doc_node(node_type=''doc'')', new.node_id;
+    end if;
+    return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists check_doc_node_type on doc;
+create trigger check_doc_node_type
+    before insert or update of node_id on doc
+    for each row execute function ensure_doc_node_type_doc();
+
 -- 4) Commit：doc_commit（快照）
--- 4.1 commit 主表（内容快照）
--- Markdown 直接存 content_md 最简单；如果你未来要上对象存储，就换成 content_ref + content_hash。
 create table doc_commit (
     id bigserial primary key,
     doc_id bigint not null references doc(id) on delete cascade,
-    -- git风格：内容寻址用hash(sha256 32 bytes)
-    commit_hash bytea not null, -- 通常是对 {doc_id, parents, title, content_hash, author, message, created_at} 做一次 sha256（服务端算），保证稳定+可校验。
+    commit_hash bytea not null check (octet_length(commit_hash) = 32),
     author_id bigint,
     message varchar(100) not null,
     create_at timestamptz not null default now(),
-    -- 内容快照
-    title text not null ,
+    title text not null,
     content_md text not null,
-    -- 内容hash (用于去重/对比)
-    content_hash bytea generated always as ( digest(content_md, 'sha256') ) stored not null
+    content_hash bytea generated always as (digest(content_md, 'sha256')) stored not null,
+    constraint uk_doc_commit_doc_id_id unique (doc_id, id)
 );
-create unique index uk_doc_commit_doc_hash
+create unique index if not exists uk_doc_commit_doc_hash
     on doc_commit(doc_id, commit_hash);
-create index idx_doc_commit_doc_create_at
-    on doc_commit(doc_id, create_at desc );
+create index if not exists idx_doc_commit_doc_create_at
+    on doc_commit(doc_id, create_at desc, id desc);
+
+-- 4.1) commit DAG 边：doc_commit_parent
+create table doc_commit_parent (
+    doc_id bigint not null,
+    child_commit_id bigint not null,
+    parent_commit_id bigint not null,
+    parent_order smallint not null check (parent_order >= 0),
+    create_at timestamptz not null default now(),
+    primary key (doc_id, child_commit_id, parent_order),
+    unique (doc_id, child_commit_id, parent_commit_id),
+    constraint chk_doc_commit_parent_not_self
+        check (child_commit_id <> parent_commit_id),
+    constraint fk_doc_commit_parent_child
+        foreign key (doc_id, child_commit_id) references doc_commit(doc_id, id) on delete cascade,
+    constraint fk_doc_commit_parent_parent
+        foreign key (doc_id, parent_commit_id) references doc_commit(doc_id, id) on delete cascade
+);
+create index if not exists idx_doc_commit_parent_parent
+    on doc_commit_parent(doc_id, parent_commit_id, child_commit_id);
 
 -- 5) 分支/标签：doc_ref
--- Git 的 ref 就是名字 → commit 指针。一个 doc 内可以有多个 ref。
-create type doc_ref_type as enum ('branch', 'tag');
+-- create type doc_ref_type as enum ('branch', 'tag');
 create table doc_ref (
     doc_id bigint not null references doc(id) on delete cascade,
-    ref_name varchar(100) not null, -- e.g. 'refs/heads/main', 'refs/tags/v1.0'
-    commit_id bigint not null references doc_commit(id) on delete set null , -- 这是“引用关系”，不是拥有关系
+    ref_name varchar(100) not null, -- e.g. refs/heads/main, refs/tags/v1.0
+    commit_id bigint not null,
     ref_type doc_ref_type not null,
     update_at timestamptz not null default now(),
-    primary key (doc_id, ref_name)
+    primary key (doc_id, ref_name),
+    constraint fk_doc_ref_commit
+        foreign key (doc_id, commit_id) references doc_commit(doc_id, id) on delete cascade,
+    constraint chk_doc_ref_name_and_type
+        check (
+            (ref_type = 'branch' and ref_name ~ '^refs/heads/.+')
+            or
+            (ref_type = 'tag' and ref_name ~ '^refs/tags/.+')
+        )
 );
-create trigger update_doc_ref_modtime -- 更新[更新时间]
+create index if not exists idx_doc_ref_doc_type_name
+    on doc_ref(doc_id, ref_type, ref_name);
+drop trigger if exists update_doc_ref_modtime on doc_ref;
+create trigger update_doc_ref_modtime
     before update on doc_ref
     for each row execute function update_modified_column();
--- 约定分支: refs/heads/<name>，标签: refs/tags/<name>
 
--- 6) HEAD / “当前检出分支”与并发控制（可选但很实用）
--- 在 UI 上选中某分支编辑，然后 push
+-- 6) HEAD / 当前检出分支与并发控制（可选但很实用）
 create table doc_head (
     doc_id bigint primary key references doc(id) on delete cascade,
-    head_ref varchar(100) not null, -- e.g. 'refs/heads/main'
+    head_ref varchar(100) not null, -- e.g. refs/heads/main
     ref_version bigint not null default 0, -- 用于 CAS 更新，乐观锁
-    update_at timestamptz not null default now()
+    update_at timestamptz not null default now(),
+    constraint fk_doc_head_ref
+        foreign key (doc_id, head_ref) references doc_ref(doc_id, ref_name) on delete cascade,
+    constraint chk_doc_head_branch_ref
+        check (head_ref ~ '^refs/heads/.+')
 );
-
+drop trigger if exists update_doc_head_modtime on doc_head;
+create trigger update_doc_head_modtime
+    before update on doc_head
+    for each row execute function update_modified_column();
 
 commit transaction;
