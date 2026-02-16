@@ -1,20 +1,47 @@
 package com.simpleblog.model.entity;
 
-import java.time.LocalDateTime;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.simpleblog.mapper.typehandler.DocumentNodeTypeTypeHandler;
+
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@TableName("doc_node")
 public class DocNode {
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    @TableField("space_id")
     private Long spaceId;
+
+    @TableField("parent_id")
     private Long parentId;
+
+    @TableField(value = "node_type", typeHandler = DocumentNodeTypeTypeHandler.class)
     private DocumentNodeType nodeType;
+
     private String title;
+
+    @TableField("sort_key")
     private Integer sortKey;
+
+    @TableField("is_deleted")
     private Boolean deleted;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
+
+    @TableField("create_at")
+    private OffsetDateTime createAt;
+
+    @TableField("update_at")
+    private OffsetDateTime updateAt;
+
+    @TableField(exist = false)
     private Long docId;
+
+    @TableField(exist = false)
     private List<DocNode> children = new ArrayList<>();
 
     public Long getId() {
@@ -73,19 +100,19 @@ public class DocNode {
         this.deleted = deleted;
     }
 
-    public LocalDateTime getCreateAt() {
+    public OffsetDateTime getCreateAt() {
         return createAt;
     }
 
-    public void setCreateAt(LocalDateTime createAt) {
+    public void setCreateAt(OffsetDateTime createAt) {
         this.createAt = createAt;
     }
 
-    public LocalDateTime getUpdateAt() {
+    public OffsetDateTime getUpdateAt() {
         return updateAt;
     }
 
-    public void setUpdateAt(LocalDateTime updateAt) {
+    public void setUpdateAt(OffsetDateTime updateAt) {
         this.updateAt = updateAt;
     }
 

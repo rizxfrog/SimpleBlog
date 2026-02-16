@@ -1,14 +1,31 @@
 package com.simpleblog.model.entity;
 
-import java.time.LocalDateTime;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.time.OffsetDateTime;
+
+@TableName("doc")
 public class DocRepo {
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    @TableField("node_id")
     private Long nodeId;
+
+    @TableField("default_branch")
     private String defaultBranch;
+
+    @TableField("acl_mode")
     private String aclMode;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
+
+    @TableField("create_at")
+    private OffsetDateTime createAt;
+
+    @TableField("update_at")
+    private OffsetDateTime updateAt;
 
     public Long getId() {
         return id;
@@ -42,19 +59,19 @@ public class DocRepo {
         this.aclMode = aclMode;
     }
 
-    public LocalDateTime getCreateAt() {
+    public OffsetDateTime getCreateAt() {
         return createAt;
     }
 
-    public void setCreateAt(LocalDateTime createAt) {
+    public void setCreateAt(OffsetDateTime createAt) {
         this.createAt = createAt;
     }
 
-    public LocalDateTime getUpdateAt() {
+    public OffsetDateTime getUpdateAt() {
         return updateAt;
     }
 
-    public void setUpdateAt(LocalDateTime updateAt) {
+    public void setUpdateAt(OffsetDateTime updateAt) {
         this.updateAt = updateAt;
     }
 }

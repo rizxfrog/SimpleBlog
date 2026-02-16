@@ -47,10 +47,13 @@ public class AuthService {
         }
 
         List<Role> roles = userService.findRoles(user.getId());
-        List<String> roleCodes = roles.stream().map(Role::getCode).collect(Collectors.toList());
+        List<String> roleCodes = roles.stream().map(Role::getCode).toList();
 
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", roleCodes);
+        Map<String, Object> claims = Map.of(
+                "username", user.getUsername(),
+                "roles", roleCodes,
+                "user_id", user.getId()
+        );
 
         String token = jwtService.generateToken(user.getUsername(), claims);
         return new AuthPayload(token, user);
@@ -81,13 +84,16 @@ public class AuthService {
         user.setRoleId(userRole.getId());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
-        userMapper.insert(user);
+        userMapper.insert(user);    // 自增类型插入后会自动回填id
 
         List<Role> roles = userService.findRoles(user.getId());
-        List<String> roleCodes = roles.stream().map(Role::getCode).collect(Collectors.toList());
+        List<String> roleCodes = roles.stream().map(Role::getCode).toList();
 
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", roleCodes);
+        Map<String, Object> claims = Map.of(
+                "username", user.getUsername(),
+                "roles", roleCodes,
+                "user_id", user.getId()
+        );
 
         String token = jwtService.generateToken(user.getUsername(), claims);
         return new AuthPayload(token, user);

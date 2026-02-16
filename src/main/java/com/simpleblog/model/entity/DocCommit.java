@@ -1,17 +1,40 @@
 package com.simpleblog.model.entity;
 
-import java.time.LocalDateTime;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.time.OffsetDateTime;
+
+@TableName("doc_commit")
 public class DocCommit {
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    @TableField("doc_id")
     private Long docId;
+
+    @TableField("commit_hash")
     private String commitHash;
+
+    @TableField("author_id")
     private Long authorId;
+
     private String message;
-    private LocalDateTime createAt;
+
+    @TableField("create_at")
+    private OffsetDateTime createAt;
+
     private String title;
+
+    @TableField("content_md")
     private String contentMd;
+
+    @TableField("content_hash")
     private String contentHash;
+
+    @TableField(exist = false)
     private Integer depth;
 
     public Long getId() {
@@ -54,11 +77,11 @@ public class DocCommit {
         this.message = message;
     }
 
-    public LocalDateTime getCreateAt() {
+    public OffsetDateTime getCreateAt() {
         return createAt;
     }
 
-    public void setCreateAt(LocalDateTime createAt) {
+    public void setCreateAt(OffsetDateTime createAt) {
         this.createAt = createAt;
     }
 

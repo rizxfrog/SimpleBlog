@@ -1,51 +1,39 @@
 package com.simpleblog.model.entity;
 
-import java.time.LocalDateTime;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
+import java.time.OffsetDateTime;
+
+@TableName("doc_space")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@ToString
 public class DocSpace {
+    @TableId(type = IdType.AUTO)
     private Long id;
+
     private String name;
-    private LocalDateTime createAt;
-    private LocalDateTime updateAt;
-    private LocalDateTime deleteAt;
 
-    public Long getId() {
-        return id;
-    }
+    @TableField("create_at")
+    private OffsetDateTime createAt;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    @TableField("update_at")
+    private OffsetDateTime updateAt;
 
-    public String getName() {
-        return name;
-    }
+    @TableField("delete_at")
+    private OffsetDateTime deleteAt;
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    @TableField("is_deleted")
+    private Boolean isDeleted;
 
-    public LocalDateTime getCreateAt() {
-        return createAt;
-    }
-
-    public void setCreateAt(LocalDateTime createAt) {
-        this.createAt = createAt;
-    }
-
-    public LocalDateTime getUpdateAt() {
-        return updateAt;
-    }
-
-    public void setUpdateAt(LocalDateTime updateAt) {
-        this.updateAt = updateAt;
-    }
-
-    public LocalDateTime getDeleteAt() {
-        return deleteAt;
-    }
-
-    public void setDeleteAt(LocalDateTime deleteAt) {
-        this.deleteAt = deleteAt;
-    }
+    @TableField("owner_id")
+    private Long ownerId;
 }

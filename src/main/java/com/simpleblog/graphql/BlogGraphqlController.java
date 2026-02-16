@@ -1,5 +1,8 @@
 package com.simpleblog.graphql;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.simpleblog.common.utils.RedisKeyBuilder;
+import com.simpleblog.common.utils.RedisUtils;
 import com.simpleblog.model.dto.BlogInput;
 import com.simpleblog.model.dto.BlogPage;
 import com.simpleblog.model.dto.BlogSearchPage;
@@ -11,6 +14,7 @@ import com.simpleblog.model.entity.Comment;
 import com.simpleblog.model.entity.Tag;
 import com.simpleblog.model.entity.User;
 import com.simpleblog.model.enums.CommentStatus;
+import com.simpleblog.security.JwtService;
 import com.simpleblog.service.EmailService;
 import com.simpleblog.security.SecurityUtils;
 import com.simpleblog.service.BlogService;
@@ -31,6 +35,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Controller
 public class BlogGraphqlController {
@@ -41,6 +46,9 @@ public class BlogGraphqlController {
     private final UserService userService;
     private final EmailService emailService;
     private final BlogMetricsService blogMetricsService;
+    private final JwtService  jwtService;
+    private final RedisUtils redisUtils;
+    private final ObjectMapper objectMapper;
 
     public BlogGraphqlController(BlogService blogService,
                                  CategoryService categoryService,
@@ -48,7 +56,10 @@ public class BlogGraphqlController {
                                  CommentService commentService,
                                  UserService userService,
                                  EmailService emailService,
-                                 BlogMetricsService blogMetricsService) {
+                                 BlogMetricsService blogMetricsService,
+                                 RedisUtils redisUtils,
+                                 ObjectMapper objectMapper,
+                                 JwtService jwtService) {
         this.blogService = blogService;
         this.categoryService = categoryService;
         this.tagService = tagService;
@@ -56,6 +67,9 @@ public class BlogGraphqlController {
         this.userService = userService;
         this.emailService = emailService;
         this.blogMetricsService = blogMetricsService;
+        this.redisUtils = redisUtils;
+        this.objectMapper = objectMapper;
+        this.jwtService = jwtService;
     }
 
     @QueryMapping
@@ -109,8 +123,10 @@ public class BlogGraphqlController {
     @PreAuthorize("hasAnyRole('admin','user')")
     @MutationMapping
     public Blog createBlog(@Argument BlogInput input) {
-        User user = currentUser();
-        return blogService.createBlog(user.getId(), input);
+        /*User user = currentUser();
+        return blogService.createBlog(user.getId(), input);*/
+        Long userId = jwtService.currentUserId();
+        return blogService.createBlog(userId, input);
     }
 
     @PreAuthorize("hasAnyRole('admin','user')")
@@ -274,12 +290,6 @@ public class BlogGraphqlController {
         return commentService.listByBlogId(comment.getBlogId(), CommentStatus.approved).stream()
                 .filter(item -> comment.getId().equals(item.getParentId()))
                 .toList();
-    }
-
-    private User currentUser() {
-        return SecurityUtils.currentUsername()
-                .map(userService::findByUsername)
-                .orElseThrow(() -> new IllegalStateException("User not authenticated."));
     }
 
     private HttpServletRequest currentRequest() {

@@ -1,5 +1,13 @@
 package com.simpleblog.service;
 
+import com.simpleblog.common.utils.StrictUniqueTimestamp;
+import com.simpleblog.mapper.DocCommitMapper;
+import com.simpleblog.mapper.DocCommitParentMapper;
+import com.simpleblog.mapper.DocHeadMapper;
+import com.simpleblog.mapper.DocNodeMapper;
+import com.simpleblog.mapper.DocRefMapper;
+import com.simpleblog.mapper.DocRepoMapper;
+import com.simpleblog.mapper.DocSpaceMapper;
 import com.simpleblog.model.dto.DocCommitInput;
 import com.simpleblog.model.dto.DocMergeInput;
 import com.simpleblog.model.dto.DocNodeCreateInput;
@@ -12,17 +20,13 @@ import com.simpleblog.model.entity.DocRefType;
 import com.simpleblog.model.entity.DocRepo;
 import com.simpleblog.model.entity.DocSpace;
 import com.simpleblog.model.entity.DocumentNodeType;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import com.simpleblog.security.JwtService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
@@ -32,41 +36,54 @@ import java.util.UUID;
 public class DocSystemService {
     public static final String MAIN_BRANCH = "refs/heads/main";
 
-    private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final DocSpaceMapper docSpaceMapper;
+    private final DocNodeMapper docNodeMapper;
+    private final DocRepoMapper docRepoMapper;
+    private final DocCommitMapper docCommitMapper;
+    private final DocRefMapper docRefMapper;
+    private final DocHeadMapper docHeadMapper;
+    private final DocCommitParentMapper docCommitParentMapper;
+    private final JwtService jwtService;
 
-    public DocSystemService(NamedParameterJdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public DocSystemService(DocSpaceMapper docSpaceMapper,
+                            DocNodeMapper docNodeMapper,
+                            DocRepoMapper docRepoMapper,
+                            DocCommitMapper docCommitMapper,
+                            DocRefMapper docRefMapper,
+                            DocHeadMapper docHeadMapper,
+                            DocCommitParentMapper docCommitParentMapper,
+                            JwtService jwtService) {
+        this.docSpaceMapper = docSpaceMapper;
+        this.docNodeMapper = docNodeMapper;
+        this.docRepoMapper = docRepoMapper;
+        this.docCommitMapper = docCommitMapper;
+        this.docRefMapper = docRefMapper;
+        this.docHeadMapper = docHeadMapper;
+        this.docCommitParentMapper = docCommitParentMapper;
+        this.jwtService = jwtService;
     }
 
     public List<DocSpace> listSpaces() {
-        return jdbcTemplate.query("""
-                select id, name, create_at, update_at, delete_at
-                from doc_space
-                order by name asc, id asc
-                """, DOC_SPACE_ROW_MAPPER);
+        return docSpaceMapper.listAll();
     }
 
     public DocSpace findSpace(Long id) {
         if (id == null) {
             return null;
         }
-        return queryOne("""
-                select id, name, create_at, update_at, delete_at
-                from doc_space
-                where id = :id
-                """, params("id", id), DOC_SPACE_ROW_MAPPER);
+        return docSpaceMapper.selectById(id);
     }
 
     @Transactional
     public DocSpace createSpace(String name) {
-        String nextName = normalizeName(name, "Untitled Space");
-        ensureUniqueSpaceName(nextName, null);
-        Long id = jdbcTemplate.queryForObject("""
-                insert into doc_space(name)
-                values (:name)
-                returning id
-                """, params("name", nextName), Long.class);
-        return findSpace(id);
+        String nextName = strictUniqueNormalizeName(name, "Untitled Space");
+//        ensureUniqueSpaceName(nextName, null); // 数据库里有 unique(name, owner_id) where not is_deleted;
+        DocSpace space = new DocSpace();
+        space.setName(nextName);
+        Long userId = jwtService.currentUserId();
+        space.setOwnerId(userId);
+        docSpaceMapper.insert(space);
+        return findSpace(space.getId());
     }
 
     @Transactional
@@ -80,13 +97,9 @@ public class DocSystemService {
         }
         String nextName = normalizeName(name, existing.getName());
         ensureUniqueSpaceName(nextName, id);
-        jdbcTemplate.update("""
-                update doc_space
-                set name = :name
-                where id = :id
-                """, new MapSqlParameterSource()
-                .addValue("id", id)
-                .addValue("name", nextName));
+
+        existing.setName(nextName);
+        docSpaceMapper.updateById(existing);
         return findSpace(id);
     }
 
@@ -95,145 +108,44 @@ public class DocSystemService {
         if (id == null) {
             return false;
         }
-        return jdbcTemplate.update("""
-                delete from doc_space
-                where id = :id
-                """, params("id", id)) > 0;
+        return docSpaceMapper.deleteById(id) > 0;
     }
 
     public List<DocNode> listTree(Long spaceId, boolean includeDeleted) {
         requireSpaceExists(spaceId);
-        return jdbcTemplate.query("""
-                select n.id,
-                       n.space_id,
-                       n.parent_id,
-                       n.node_type::text as node_type,
-                       n.title,
-                       n.sort_key,
-                       n.is_deleted as deleted,
-                       n.create_at,
-                       n.update_at,
-                       d.id as doc_id
-                from doc_node n
-                left join doc d on d.node_id = n.id
-                where n.space_id = :spaceId
-                  and (:includeDeleted = true or n.is_deleted = false)
-                order by n.parent_id nulls first, n.sort_key asc, n.id asc
-                """, new MapSqlParameterSource()
-                .addValue("spaceId", spaceId)
-                .addValue("includeDeleted", includeDeleted), DOC_NODE_ROW_MAPPER);
+        return docNodeMapper.listBySpace(spaceId, includeDeleted);
     }
 
     public DocNode findNode(Long id) {
         if (id == null) {
             return null;
         }
-        return queryOne("""
-                select n.id,
-                       n.space_id,
-                       n.parent_id,
-                       n.node_type::text as node_type,
-                       n.title,
-                       n.sort_key,
-                       n.is_deleted as deleted,
-                       n.create_at,
-                       n.update_at,
-                       d.id as doc_id
-                from doc_node n
-                left join doc d on d.node_id = n.id
-                where n.id = :id
-                """, params("id", id), DOC_NODE_ROW_MAPPER);
+        return docNodeMapper.selectByIdWithDoc(id);
     }
 
     public DocRepo findRepoByNodeId(Long nodeId) {
         if (nodeId == null) {
             return null;
         }
-        return queryOne("""
-                select id, node_id, default_branch, acl_mode, create_at, update_at
-                from doc
-                where node_id = :nodeId
-                """, params("nodeId", nodeId), DOC_REPO_ROW_MAPPER);
+        return docRepoMapper.selectByNodeId(nodeId);
     }
 
     public List<DocRef> listRefs(Long docId) {
         requireDocExists(docId);
-        return jdbcTemplate.query("""
-                select doc_id, ref_name, commit_id, ref_type::text as ref_type, update_at
-                from doc_ref
-                where doc_id = :docId
-                order by ref_type asc, ref_name asc
-                """, params("docId", docId), DOC_REF_ROW_MAPPER);
+        return docRefMapper.listByDocId(docId);
     }
 
     public DocCommit findLatestCommit(Long docId, String refName) {
         requireDocExists(docId);
         String resolvedRef = normalizeRefName(refName);
-        return queryOne("""
-                select c.id,
-                       c.doc_id,
-                       encode(c.commit_hash, 'hex') as commit_hash,
-                       c.author_id,
-                       c.message,
-                       c.create_at,
-                       c.title,
-                       c.content_md,
-                       encode(c.content_hash, 'hex') as content_hash
-                from doc_ref r
-                join doc_commit c
-                  on c.doc_id = r.doc_id
-                 and c.id = r.commit_id
-                where r.doc_id = :docId
-                  and r.ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", resolvedRef), DOC_COMMIT_ROW_MAPPER);
+        return docCommitMapper.findLatestByRef(docId, resolvedRef);
     }
 
     public List<DocCommit> listCommitHistory(Long docId, String refName, int maxDepth) {
         requireDocExists(docId);
         String resolvedRef = normalizeRefName(refName);
         int depth = maxDepth <= 0 ? 50 : Math.min(maxDepth, 500);
-        return jdbcTemplate.query("""
-                with recursive chain as (
-                    select c.id, c.create_at, 0 as depth
-                    from doc_ref r
-                    join doc_commit c
-                      on c.doc_id = r.doc_id
-                     and c.id = r.commit_id
-                    where r.doc_id = :docId
-                      and r.ref_name = :refName
-                    union all
-                    select p.parent_commit_id, c2.create_at, ch.depth + 1
-                    from chain ch
-                    join doc_commit_parent p
-                      on p.doc_id = :docId
-                     and p.child_commit_id = ch.id
-                     and p.parent_order = 0
-                    join doc_commit c2
-                      on c2.doc_id = p.doc_id
-                     and c2.id = p.parent_commit_id
-                    where ch.depth < :depth
-                )
-                select c.id,
-                       c.doc_id,
-                       encode(c.commit_hash, 'hex') as commit_hash,
-                       c.author_id,
-                       c.message,
-                       c.create_at,
-                       c.title,
-                       c.content_md,
-                       encode(c.content_hash, 'hex') as content_hash,
-                       ch.depth
-                from chain ch
-                join doc_commit c
-                  on c.doc_id = :docId
-                 and c.id = ch.id
-                order by ch.depth asc
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", resolvedRef)
-                .addValue("depth", depth), DOC_COMMIT_ROW_MAPPER);
+        return docCommitMapper.listHistory(docId, resolvedRef, depth);
     }
 
     @Transactional
@@ -259,44 +171,30 @@ public class DocSystemService {
                 throw new IllegalArgumentException("Parent node is deleted.");
             }
         }
-        int sortKey = input.sortKey() != null ? input.sortKey() : nextSortKey(spaceId, parentId);
 
-        Long nodeId = jdbcTemplate.queryForObject("""
-                insert into doc_node(space_id, parent_id, node_type, title, sort_key, is_deleted)
-                values (:spaceId, :parentId, cast(:nodeType as doc_node_type), :title, :sortKey, false)
-                returning id
-                """, new MapSqlParameterSource()
-                .addValue("spaceId", spaceId)
-                .addValue("parentId", parentId)
-                .addValue("nodeType", nodeType.getValue())
-                .addValue("title", title)
-                .addValue("sortKey", sortKey), Long.class);
+        int sortKey = input.sortKey() != null ? input.sortKey() : nextSortKey(spaceId, parentId);
+        DocNode node = new DocNode();
+        node.setSpaceId(spaceId);
+        node.setParentId(parentId);
+        node.setNodeType(nodeType);
+        node.setTitle(title);
+        node.setSortKey(sortKey);
+        node.setDeleted(false);
+        docNodeMapper.insert(node);
 
         if (nodeType == DocumentNodeType.DOC) {
-            Long docId = jdbcTemplate.queryForObject("""
-                    insert into doc(node_id, default_branch)
-                    values (:nodeId, :defaultBranch)
-                    returning id
-                    """, new MapSqlParameterSource()
-                    .addValue("nodeId", nodeId)
-                    .addValue("defaultBranch", MAIN_BRANCH), Long.class);
+            DocRepo repo = new DocRepo();
+            repo.setNodeId(node.getId());
+            repo.setDefaultBranch(MAIN_BRANCH);
+            repo.setAclMode("inherit");
+            docRepoMapper.insert(repo);
+
+            Long docId = repo.getId();
             DocCommit initCommit = insertCommit(docId, authorId, title, safeContent(input.contentMd()), "Initial commit", "init-" + UUID.randomUUID());
-            jdbcTemplate.update("""
-                    insert into doc_ref(doc_id, ref_name, commit_id, ref_type)
-                    values (:docId, :refName, :commitId, cast(:refType as doc_ref_type))
-                    """, new MapSqlParameterSource()
-                    .addValue("docId", docId)
-                    .addValue("refName", MAIN_BRANCH)
-                    .addValue("commitId", initCommit.getId())
-                    .addValue("refType", DocRefType.BRANCH.getValue()));
-            jdbcTemplate.update("""
-                    insert into doc_head(doc_id, head_ref, ref_version)
-                    values (:docId, :headRef, 0)
-                    """, new MapSqlParameterSource()
-                    .addValue("docId", docId)
-                    .addValue("headRef", MAIN_BRANCH));
+            docRefMapper.insertRef(docId, MAIN_BRANCH, initCommit.getId(), DocRefType.BRANCH.getValue());
+            docHeadMapper.insertHead(docId, MAIN_BRANCH);
         }
-        return requireNode(nodeId);
+        return requireNode(node.getId());
     }
 
     @Transactional
@@ -305,18 +203,16 @@ public class DocSystemService {
         if (input == null) {
             return existing;
         }
-        String title = input.title() == null ? null : normalizeName(input.title(), existing.getTitle());
-        jdbcTemplate.update("""
-                update doc_node
-                set title = coalesce(:title, title),
-                    sort_key = coalesce(:sortKey, sort_key),
-                    is_deleted = coalesce(:deleted, is_deleted)
-                where id = :id
-                """, new MapSqlParameterSource()
-                .addValue("id", id)
-                .addValue("title", title)
-                .addValue("sortKey", input.sortKey())
-                .addValue("deleted", input.deleted()));
+        if (input.title() != null) {
+            existing.setTitle(normalizeName(input.title(), existing.getTitle()));
+        }
+        if (input.sortKey() != null) {
+            existing.setSortKey(input.sortKey());
+        }
+        if (input.deleted() != null) {
+            existing.setDeleted(input.deleted());
+        }
+        docNodeMapper.updateById(existing);
         return requireNode(id);
     }
 
@@ -340,35 +236,16 @@ public class DocSystemService {
             }
         }
         int sortKey = input.sortKey() != null ? input.sortKey() : nextSortKey(node.getSpaceId(), targetParentId);
-        jdbcTemplate.update("""
-                update doc_node
-                set parent_id = :parentId,
-                    sort_key = :sortKey
-                where id = :id
-                """, new MapSqlParameterSource()
-                .addValue("id", id)
-                .addValue("parentId", targetParentId)
-                .addValue("sortKey", sortKey));
+        node.setParentId(targetParentId);
+        node.setSortKey(sortKey);
+        docNodeMapper.updateById(node);
         return requireNode(id);
     }
 
     @Transactional
     public boolean deleteNode(Long id) {
         requireNode(id);
-        return jdbcTemplate.update("""
-                with recursive subtree as (
-                    select id
-                    from doc_node
-                    where id = :id
-                    union all
-                    select n.id
-                    from doc_node n
-                    join subtree s on n.parent_id = s.id
-                )
-                update doc_node
-                set is_deleted = true
-                where id in (select id from subtree)
-                """, params("id", id)) > 0;
+        return docNodeMapper.markSubtreeDeleted(id) > 0;
     }
 
     @Transactional
@@ -379,25 +256,12 @@ public class DocSystemService {
         }
         String normalizedRef = normalizeRefName(refName);
         DocRefType refType = parseRefType(normalizedRef);
-        long commitExists = jdbcTemplate.queryForObject("""
-                select count(1)
-                from doc_commit
-                where doc_id = :docId
-                  and id = :commitId
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("commitId", fromCommitId), Long.class);
+
+        long commitExists = docCommitMapper.countByDocAndId(docId, fromCommitId);
         if (commitExists == 0) {
             throw new IllegalArgumentException("Commit not found in this doc.");
         }
-        jdbcTemplate.update("""
-                insert into doc_ref(doc_id, ref_name, commit_id, ref_type)
-                values (:docId, :refName, :commitId, cast(:refType as doc_ref_type))
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", normalizedRef)
-                .addValue("commitId", fromCommitId)
-                .addValue("refType", refType.getValue()));
+        docRefMapper.insertRef(docId, normalizedRef, fromCommitId, refType.getValue());
         ensureHeadExists(docId, normalizedRef, refType);
         return requireRef(docId, normalizedRef);
     }
@@ -409,21 +273,11 @@ public class DocSystemService {
         if (MAIN_BRANCH.equals(normalizedRef)) {
             throw new IllegalArgumentException("Main branch cannot be deleted.");
         }
-        String currentHead = queryOne("""
-                select head_ref
-                from doc_head
-                where doc_id = :docId
-                """, params("docId", docId), (rs, rowNum) -> rs.getString("head_ref"));
+        String currentHead = docHeadMapper.findHeadRef(docId);
         if (Objects.equals(currentHead, normalizedRef)) {
             throw new IllegalArgumentException("Cannot delete current HEAD ref.");
         }
-        return jdbcTemplate.update("""
-                delete from doc_ref
-                where doc_id = :docId
-                  and ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", normalizedRef)) > 0;
+        return docRefMapper.deleteRef(docId, normalizedRef) > 0;
     }
 
     @Transactional
@@ -434,7 +288,7 @@ public class DocSystemService {
         Long docId = input.docId();
         requireDocExists(docId);
         String refName = normalizeRefName(input.refName());
-        Long currentTip = lockRefTip(docId, refName);
+        Long currentTip = docRefMapper.lockRefTip(docId, refName);
         if (currentTip == null) {
             throw new IllegalArgumentException("Ref not found: " + refName);
         }
@@ -448,22 +302,8 @@ public class DocSystemService {
         DocCommit commit = insertCommit(docId, authorId, title, content, message,
                 "commit-" + docId + "-" + currentTip + "-" + System.nanoTime());
 
-        jdbcTemplate.update("""
-                insert into doc_commit_parent(doc_id, child_commit_id, parent_commit_id, parent_order)
-                values (:docId, :childCommitId, :parentCommitId, 0)
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("childCommitId", commit.getId())
-                .addValue("parentCommitId", currentTip));
-        jdbcTemplate.update("""
-                update doc_ref
-                set commit_id = :commitId
-                where doc_id = :docId
-                  and ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("commitId", commit.getId())
-                .addValue("docId", docId)
-                .addValue("refName", refName));
+        docCommitParentMapper.insertParent(docId, commit.getId(), currentTip, 0);
+        docRefMapper.updateRefCommit(docId, refName, commit.getId());
         syncNodeTitle(docId, title);
         return commit;
     }
@@ -477,48 +317,30 @@ public class DocSystemService {
         requireDocExists(docId);
         String targetRef = normalizeRefName(input.targetRef());
         String sourceRef = normalizeRefName(input.sourceRef());
-        Long targetTip = lockRefTip(docId, targetRef);
+
+        Long targetTip = docRefMapper.lockRefTip(docId, targetRef);
         if (targetTip == null) {
             throw new IllegalArgumentException("Target ref not found: " + targetRef);
         }
         if (input.targetBaseCommitId() != null && !Objects.equals(input.targetBaseCommitId(), targetTip)) {
             throw new IllegalStateException("non-fast-forward: target branch is stale");
         }
-        Long sourceTip = findRefTip(docId, sourceRef);
+        Long sourceTip = docRefMapper.findRefTip(docId, sourceRef);
         if (sourceTip == null) {
             throw new IllegalArgumentException("Source ref not found: " + sourceRef);
         }
+
         String title = normalizeName(input.title(), "Merge document");
         String content = safeContent(input.contentMd());
         String message = normalizeName(input.message(), "Merge " + sourceRef + " into " + targetRef);
         DocCommit commit = insertCommit(docId, authorId, title, content, message,
                 "merge-" + docId + "-" + targetTip + "-" + sourceTip + "-" + System.nanoTime());
 
-        jdbcTemplate.update("""
-                insert into doc_commit_parent(doc_id, child_commit_id, parent_commit_id, parent_order)
-                values (:docId, :childCommitId, :parentCommitId, 0)
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("childCommitId", commit.getId())
-                .addValue("parentCommitId", targetTip));
+        docCommitParentMapper.insertParent(docId, commit.getId(), targetTip, 0);
         if (!Objects.equals(sourceTip, targetTip)) {
-            jdbcTemplate.update("""
-                    insert into doc_commit_parent(doc_id, child_commit_id, parent_commit_id, parent_order)
-                    values (:docId, :childCommitId, :parentCommitId, 1)
-                    """, new MapSqlParameterSource()
-                    .addValue("docId", docId)
-                    .addValue("childCommitId", commit.getId())
-                    .addValue("parentCommitId", sourceTip));
+            docCommitParentMapper.insertParent(docId, commit.getId(), sourceTip, 1);
         }
-        jdbcTemplate.update("""
-                update doc_ref
-                set commit_id = :commitId
-                where doc_id = :docId
-                  and ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("commitId", commit.getId())
-                .addValue("docId", docId)
-                .addValue("refName", targetRef));
+        docRefMapper.updateRefCommit(docId, targetRef, commit.getId());
         syncNodeTitle(docId, title);
         return commit;
     }
@@ -532,122 +354,38 @@ public class DocSystemService {
         byte[] contentHash = sha256(contentMd);
         String payload = docId + "|" + title + "|" + message + "|" + salt + "|" + Base64.getEncoder().encodeToString(contentHash);
         byte[] commitHash = sha256(payload);
-        Long commitId = jdbcTemplate.queryForObject("""
-                insert into doc_commit(doc_id, commit_hash, author_id, message, title, content_md)
-                values (:docId, :commitHash, :authorId, :message, :title, :contentMd)
-                returning id
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("commitHash", commitHash)
-                .addValue("authorId", authorId)
-                .addValue("message", message)
-                .addValue("title", title)
-                .addValue("contentMd", contentMd), Long.class);
+
+        Long commitId = docCommitMapper.insertReturningId(docId, commitHash, authorId, message, title, contentMd);
         return requireCommit(docId, commitId);
     }
 
     private void syncNodeTitle(Long docId, String title) {
-        jdbcTemplate.update("""
-                update doc_node
-                set title = :title
-                where id = (select node_id from doc where id = :docId)
-                """, new MapSqlParameterSource()
-                .addValue("title", title)
-                .addValue("docId", docId));
+        Long nodeId = docRepoMapper.findNodeIdByDocId(docId);
+        if (nodeId != null) {
+            docNodeMapper.updateTitle(nodeId, title);
+        }
     }
 
     private int nextSortKey(Long spaceId, Long parentId) {
-        Integer next = jdbcTemplate.queryForObject("""
-                select coalesce(max(sort_key), -1) + 1
-                from doc_node
-                where space_id = :spaceId
-                  and parent_id is not distinct from :parentId
-                """, new MapSqlParameterSource()
-                .addValue("spaceId", spaceId)
-                .addValue("parentId", parentId), Integer.class);
+        Integer next = docNodeMapper.nextSortKey(spaceId, parentId);
         return next == null ? 0 : next;
     }
 
     private boolean containsNode(Long rootNodeId, Long candidateId) {
-        Long count = jdbcTemplate.queryForObject("""
-                with recursive subtree as (
-                    select id
-                    from doc_node
-                    where id = :rootNodeId
-                    union all
-                    select n.id
-                    from doc_node n
-                    join subtree s on n.parent_id = s.id
-                )
-                select count(1)
-                from subtree
-                where id = :candidateId
-                """, new MapSqlParameterSource()
-                .addValue("rootNodeId", rootNodeId)
-                .addValue("candidateId", candidateId), Long.class);
-        return count != null && count > 0;
-    }
-
-    private Long findRefTip(Long docId, String refName) {
-        return queryOne("""
-                select commit_id
-                from doc_ref
-                where doc_id = :docId
-                  and ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", refName), (rs, rowNum) -> rs.getLong("commit_id"));
-    }
-
-    private Long lockRefTip(Long docId, String refName) {
-        return queryOne("""
-                select commit_id
-                from doc_ref
-                where doc_id = :docId
-                  and ref_name = :refName
-                for update
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", refName), (rs, rowNum) -> rs.getLong("commit_id"));
+        return docNodeMapper.countContains(rootNodeId, candidateId) > 0;
     }
 
     private void ensureHeadExists(Long docId, String refName, DocRefType refType) {
         if (refType != DocRefType.BRANCH) {
             return;
         }
-        Long count = jdbcTemplate.queryForObject("""
-                select count(1)
-                from doc_head
-                where doc_id = :docId
-                """, params("docId", docId), Long.class);
-        if (count != null && count > 0) {
-            return;
+        if (docHeadMapper.countByDocId(docId) == 0) {
+            docHeadMapper.insertHead(docId, refName);
         }
-        jdbcTemplate.update("""
-                insert into doc_head(doc_id, head_ref, ref_version)
-                values (:docId, :headRef, 0)
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("headRef", refName));
     }
 
     private DocCommit requireCommit(Long docId, Long commitId) {
-        DocCommit commit = queryOne("""
-                select id,
-                       doc_id,
-                       encode(commit_hash, 'hex') as commit_hash,
-                       author_id,
-                       message,
-                       create_at,
-                       title,
-                       content_md,
-                       encode(content_hash, 'hex') as content_hash
-                from doc_commit
-                where doc_id = :docId
-                  and id = :id
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("id", commitId), DOC_COMMIT_ROW_MAPPER);
+        DocCommit commit = docCommitMapper.selectByDocAndId(docId, commitId);
         if (commit == null) {
             throw new IllegalArgumentException("Commit not found: " + commitId);
         }
@@ -655,14 +393,7 @@ public class DocSystemService {
     }
 
     private DocRef requireRef(Long docId, String refName) {
-        DocRef ref = queryOne("""
-                select doc_id, ref_name, commit_id, ref_type::text as ref_type, update_at
-                from doc_ref
-                where doc_id = :docId
-                  and ref_name = :refName
-                """, new MapSqlParameterSource()
-                .addValue("docId", docId)
-                .addValue("refName", refName), DOC_REF_ROW_MAPPER);
+        DocRef ref = docRefMapper.selectByDocAndName(docId, refName);
         if (ref == null) {
             throw new IllegalArgumentException("Ref not found: " + refName);
         }
@@ -681,12 +412,7 @@ public class DocSystemService {
         if (docId == null) {
             throw new IllegalArgumentException("docId is required.");
         }
-        Long count = jdbcTemplate.queryForObject("""
-                select count(1)
-                from doc
-                where id = :id
-                """, params("id", docId), Long.class);
-        if (count == null || count == 0) {
+        if (docRepoMapper.countById(docId) == 0) {
             throw new IllegalArgumentException("Doc not found: " + docId);
         }
     }
@@ -695,26 +421,14 @@ public class DocSystemService {
         if (spaceId == null) {
             throw new IllegalArgumentException("spaceId is required.");
         }
-        Long count = jdbcTemplate.queryForObject("""
-                select count(1)
-                from doc_space
-                where id = :id
-                """, params("id", spaceId), Long.class);
-        if (count == null || count == 0) {
+        if (docSpaceMapper.selectById(spaceId) == null) {
             throw new IllegalArgumentException("Space not found: " + spaceId);
         }
     }
 
     private void ensureUniqueSpaceName(String name, Long excludingId) {
-        Long count = jdbcTemplate.queryForObject("""
-                select count(1)
-                from doc_space
-                where lower(name) = lower(:name)
-                  and (:excludingId is null or id <> :excludingId)
-                """, new MapSqlParameterSource()
-                .addValue("name", name)
-                .addValue("excludingId", excludingId), Long.class);
-        if (count != null && count > 0) {
+        long count = docSpaceMapper.countByName(name, excludingId);
+        if (count > 0) {
             throw new IllegalArgumentException("Space already exists: " + name);
         }
     }
@@ -742,6 +456,13 @@ public class DocSystemService {
         return text.trim();
     }
 
+    private String strictUniqueNormalizeName(String text, String fallback) {
+        if (text == null || text.isBlank()) {
+            return fallback + " " + StrictUniqueTimestamp.next();
+        }
+        return text.trim();
+    }
+
     private String safeContent(String contentMd) {
         return contentMd == null ? "" : contentMd;
     }
@@ -753,87 +474,5 @@ public class DocSystemService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 not available", ex);
         }
-    }
-
-    private MapSqlParameterSource params(String key, Object value) {
-        return new MapSqlParameterSource().addValue(key, value);
-    }
-
-    private <T> T queryOne(String sql, MapSqlParameterSource params, RowMapper<T> mapper) {
-        List<T> rows = jdbcTemplate.query(sql, params, mapper);
-        return rows.isEmpty() ? null : rows.get(0);
-    }
-
-    private static final RowMapper<DocSpace> DOC_SPACE_ROW_MAPPER = (rs, rowNum) -> {
-        DocSpace space = new DocSpace();
-        space.setId(rs.getLong("id"));
-        space.setName(rs.getString("name"));
-        space.setCreateAt(toLocalDateTime(rs.getTimestamp("create_at")));
-        space.setUpdateAt(toLocalDateTime(rs.getTimestamp("update_at")));
-        space.setDeleteAt(toLocalDateTime(rs.getTimestamp("delete_at")));
-        return space;
-    };
-
-    private static final RowMapper<DocNode> DOC_NODE_ROW_MAPPER = (rs, rowNum) -> {
-        DocNode node = new DocNode();
-        node.setId(rs.getLong("id"));
-        node.setSpaceId(rs.getLong("space_id"));
-        long parent = rs.getLong("parent_id");
-        node.setParentId(rs.wasNull() ? null : parent);
-        node.setNodeType(DocumentNodeType.fromValue(rs.getString("node_type")));
-        node.setTitle(rs.getString("title"));
-        node.setSortKey(rs.getInt("sort_key"));
-        node.setDeleted(rs.getBoolean("deleted"));
-        node.setCreateAt(toLocalDateTime(rs.getTimestamp("create_at")));
-        node.setUpdateAt(toLocalDateTime(rs.getTimestamp("update_at")));
-        long docId = rs.getLong("doc_id");
-        node.setDocId(rs.wasNull() ? null : docId);
-        return node;
-    };
-
-    private static final RowMapper<DocRepo> DOC_REPO_ROW_MAPPER = (rs, rowNum) -> {
-        DocRepo repo = new DocRepo();
-        repo.setId(rs.getLong("id"));
-        repo.setNodeId(rs.getLong("node_id"));
-        repo.setDefaultBranch(rs.getString("default_branch"));
-        repo.setAclMode(rs.getString("acl_mode"));
-        repo.setCreateAt(toLocalDateTime(rs.getTimestamp("create_at")));
-        repo.setUpdateAt(toLocalDateTime(rs.getTimestamp("update_at")));
-        return repo;
-    };
-
-    private static final RowMapper<DocRef> DOC_REF_ROW_MAPPER = (rs, rowNum) -> {
-        DocRef ref = new DocRef();
-        ref.setDocId(rs.getLong("doc_id"));
-        ref.setRefName(rs.getString("ref_name"));
-        ref.setCommitId(rs.getLong("commit_id"));
-        ref.setRefType(DocRefType.fromValue(rs.getString("ref_type")));
-        ref.setUpdateAt(toLocalDateTime(rs.getTimestamp("update_at")));
-        return ref;
-    };
-
-    private static final RowMapper<DocCommit> DOC_COMMIT_ROW_MAPPER = (rs, rowNum) -> {
-        DocCommit commit = new DocCommit();
-        commit.setId(rs.getLong("id"));
-        commit.setDocId(rs.getLong("doc_id"));
-        commit.setCommitHash(rs.getString("commit_hash"));
-        long authorId = rs.getLong("author_id");
-        commit.setAuthorId(rs.wasNull() ? null : authorId);
-        commit.setMessage(rs.getString("message"));
-        commit.setCreateAt(toLocalDateTime(rs.getTimestamp("create_at")));
-        commit.setTitle(rs.getString("title"));
-        commit.setContentMd(rs.getString("content_md"));
-        commit.setContentHash(rs.getString("content_hash"));
-        try {
-            int depth = rs.getInt("depth");
-            commit.setDepth(rs.wasNull() ? null : depth);
-        } catch (Exception ignore) {
-            commit.setDepth(null);
-        }
-        return commit;
-    };
-
-    private static LocalDateTime toLocalDateTime(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 }

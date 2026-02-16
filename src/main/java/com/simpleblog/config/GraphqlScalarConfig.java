@@ -9,6 +9,7 @@ import graphql.schema.CoercingSerializeException;
 import graphql.language.StringValue;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +28,10 @@ public class GraphqlScalarConfig {
                         if (dataFetcherResult instanceof LocalDateTime localDateTime) {
                             return localDateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                         }
-                        throw new CoercingSerializeException("Expected a LocalDateTime.");
+                        if (dataFetcherResult instanceof OffsetDateTime offsetDateTime) {
+                            return offsetDateTime.toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                        }
+                        throw new CoercingSerializeException("Expected a LocalDateTime or OffsetDateTime.");
                     }
 
                     @Override

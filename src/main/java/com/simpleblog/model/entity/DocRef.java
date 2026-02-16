@@ -1,13 +1,29 @@
 package com.simpleblog.model.entity;
 
-import java.time.LocalDateTime;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.simpleblog.mapper.typehandler.DocRefTypeTypeHandler;
 
+import java.time.OffsetDateTime;
+
+@TableName("doc_ref")
 public class DocRef {
+    @TableField("doc_id")
     private Long docId;
+
+    @TableId(value = "ref_name", type = IdType.INPUT)
     private String refName;
+
+    @TableField("commit_id")
     private Long commitId;
+
+    @TableField(value = "ref_type", typeHandler = DocRefTypeTypeHandler.class)
     private DocRefType refType;
-    private LocalDateTime updateAt;
+
+    @TableField("update_at")
+    private OffsetDateTime updateAt;
 
     public Long getDocId() {
         return docId;
@@ -41,11 +57,11 @@ public class DocRef {
         this.refType = refType;
     }
 
-    public LocalDateTime getUpdateAt() {
+    public OffsetDateTime getUpdateAt() {
         return updateAt;
     }
 
-    public void setUpdateAt(LocalDateTime updateAt) {
+    public void setUpdateAt(OffsetDateTime updateAt) {
         this.updateAt = updateAt;
     }
 }
