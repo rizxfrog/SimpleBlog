@@ -1,11 +1,10 @@
 package com.simpleblog.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.simpleblog.common.utils.RedisKeyBuilder;
+import com.simpleblog.common.utils.RedisKeyQuickBuilder;
 import com.simpleblog.common.utils.RedisUtils;
 import com.simpleblog.mapper.UserMapper;
 import com.simpleblog.model.entity.User;
-import com.simpleblog.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -68,7 +67,7 @@ public class JwtService {
     public User currentUser() {
         String username = SecurityUtils.currentUsername()
                 .orElseThrow(() -> new IllegalStateException("User not authenticated."));
-        String key = RedisKeyBuilder.userByUsername(username);
+        String key = RedisKeyQuickBuilder.userByUsername(username);
 
         User cachedUser = parseUser(redisUtils.get(key));
         if (cachedUser != null && cachedUser.getId() != null) {

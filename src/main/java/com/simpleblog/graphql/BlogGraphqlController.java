@@ -1,7 +1,6 @@
 package com.simpleblog.graphql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.simpleblog.common.utils.RedisKeyBuilder;
 import com.simpleblog.common.utils.RedisUtils;
 import com.simpleblog.model.dto.BlogInput;
 import com.simpleblog.model.dto.BlogPage;
@@ -35,7 +34,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Controller
 public class BlogGraphqlController {

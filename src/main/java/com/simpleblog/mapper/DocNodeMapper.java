@@ -36,11 +36,19 @@ public interface DocNodeMapper extends BaseMapper<DocNode> {
     List<DocNode> listBySpace(@Param("spaceId") Long spaceId,
                               @Param("includeDeleted") boolean includeDeleted);
 
-    @Select("""
+/*    @Select("""
             select coalesce(max(sort_key), -1) + 1
             from doc_node
             where space_id = #{spaceId}
               and parent_id is not distinct from #{parentId}
+            """)*/
+    @Select("""
+            select coalesce((select sort_key + 1
+            from doc_node
+            where space_id = #{spaceId}
+                and parent_id is not distinct from #{parentId}
+            order by sort_key desc
+            limit 1), 0) as next_sort_key
             """)
     Integer nextSortKey(@Param("spaceId") Long spaceId,
                         @Param("parentId") Long parentId);
@@ -60,6 +68,21 @@ public interface DocNodeMapper extends BaseMapper<DocNode> {
             where id in (select id from subtree)
             """)
     int markSubtreeDeleted(@Param("id") Long id);
+
+    @Select("""
+            with recursive subtree as (
+                select id
+                from doc_node
+                where id = #{id}
+                union all
+                select n.id
+                from doc_node n
+                join subtree s on n.parent_id = s.id
+            )
+            select id
+            from subtree
+            """)
+    List<Long> listSubtreeIds(@Param("id") Long id);
 
     @Select("""
             with recursive subtree as (

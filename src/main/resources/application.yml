@@ -7,6 +7,9 @@ server:
   port: 8888
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/simple_blog
     username: user_RYTz54

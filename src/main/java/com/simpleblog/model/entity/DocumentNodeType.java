@@ -1,5 +1,8 @@
 package com.simpleblog.model.entity;
 
+import lombok.Getter;
+
+@Getter
 public enum DocumentNodeType {
     FOLDER("folder"),
     DOC("doc");
@@ -8,10 +11,6 @@ public enum DocumentNodeType {
 
     DocumentNodeType(String value) {
         this.value = value;
-    }
-
-    public String getValue() {
-        return value;
     }
 
     public static DocumentNodeType fromValue(String value) {

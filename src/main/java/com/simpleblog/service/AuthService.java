@@ -8,6 +8,7 @@ import com.simpleblog.model.entity.Role;
 import com.simpleblog.model.entity.User;
 import com.simpleblog.model.entity.UserStatus;
 import com.simpleblog.security.JwtService;
+import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,24 +19,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 public class AuthService {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-
-    public AuthService(UserMapper userMapper,
-                       RoleMapper roleMapper,
-                       UserService userService,
-                       PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
-        this.userMapper = userMapper;
-        this.roleMapper = roleMapper;
-        this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
-    }
 
     public AuthPayload login(String username, String password) {
         User user = userMapper.findByUsername(username);

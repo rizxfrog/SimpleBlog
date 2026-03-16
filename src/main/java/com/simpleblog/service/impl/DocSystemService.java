@@ -1,26 +1,18 @@
-package com.simpleblog.service;
+package com.simpleblog.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.simpleblog.common.constants.RedisKeys;
+import com.simpleblog.common.utils.RedisKeyBuilder;
+import com.simpleblog.common.utils.RedisKeyQuickBuilder;
+import com.simpleblog.common.utils.RedisUtils;
 import com.simpleblog.common.utils.StrictUniqueTimestamp;
-import com.simpleblog.mapper.DocCommitMapper;
-import com.simpleblog.mapper.DocCommitParentMapper;
-import com.simpleblog.mapper.DocHeadMapper;
-import com.simpleblog.mapper.DocNodeMapper;
-import com.simpleblog.mapper.DocRefMapper;
-import com.simpleblog.mapper.DocRepoMapper;
-import com.simpleblog.mapper.DocSpaceMapper;
-import com.simpleblog.model.dto.DocCommitInput;
-import com.simpleblog.model.dto.DocMergeInput;
-import com.simpleblog.model.dto.DocNodeCreateInput;
-import com.simpleblog.model.dto.DocNodeMoveInput;
-import com.simpleblog.model.dto.DocNodeUpdateInput;
-import com.simpleblog.model.entity.DocCommit;
-import com.simpleblog.model.entity.DocNode;
-import com.simpleblog.model.entity.DocRef;
-import com.simpleblog.model.entity.DocRefType;
-import com.simpleblog.model.entity.DocRepo;
-import com.simpleblog.model.entity.DocSpace;
-import com.simpleblog.model.entity.DocumentNodeType;
+import com.simpleblog.mapper.*;
+import com.simpleblog.model.dto.*;
+import com.simpleblog.model.entity.*;
+import com.simpleblog.redisService.IDocSystemRedisService;
 import com.simpleblog.security.JwtService;
+import com.simpleblog.service.IDocSystemService;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +22,18 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 @Service
-public class DocSystemService {
+@AllArgsConstructor
+public class DocSystemService implements IDocSystemService {
     public static final String MAIN_BRANCH = "refs/heads/main";
+    private static final long DOC_NODE_CACHE_TTL_MINUTES = 10;
+    private static final long DOC_NODE_NULL_CACHE_TTL_SECONDS = 45;
+    private static final String DOC_NODE_NULL_SENTINEL = "__NULL__";
 
     private final DocSpaceMapper docSpaceMapper;
     private final DocNodeMapper docNodeMapper;
@@ -44,29 +43,16 @@ public class DocSystemService {
     private final DocHeadMapper docHeadMapper;
     private final DocCommitParentMapper docCommitParentMapper;
     private final JwtService jwtService;
+    private final RedisUtils redisUtils;
+    private final ObjectMapper objectMapper;
 
-    public DocSystemService(DocSpaceMapper docSpaceMapper,
-                            DocNodeMapper docNodeMapper,
-                            DocRepoMapper docRepoMapper,
-                            DocCommitMapper docCommitMapper,
-                            DocRefMapper docRefMapper,
-                            DocHeadMapper docHeadMapper,
-                            DocCommitParentMapper docCommitParentMapper,
-                            JwtService jwtService) {
-        this.docSpaceMapper = docSpaceMapper;
-        this.docNodeMapper = docNodeMapper;
-        this.docRepoMapper = docRepoMapper;
-        this.docCommitMapper = docCommitMapper;
-        this.docRefMapper = docRefMapper;
-        this.docHeadMapper = docHeadMapper;
-        this.docCommitParentMapper = docCommitParentMapper;
-        this.jwtService = jwtService;
-    }
+    private final IDocSystemRedisService docRedisService;
 
+    @Override
     public List<DocSpace> listSpaces() {
         return docSpaceMapper.listAll();
     }
-
+    @Override
     public DocSpace findSpace(Long id) {
         if (id == null) {
             return null;
@@ -75,6 +61,7 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocSpace createSpace(String name) {
         String nextName = strictUniqueNormalizeName(name, "Untitled Space");
 //        ensureUniqueSpaceName(nextName, null); // 数据库里有 unique(name, owner_id) where not is_deleted;
@@ -87,14 +74,13 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocSpace renameSpace(Long id, String name) {
-        if (id == null) {
-            throw new IllegalArgumentException("Space id is required.");
-        }
+        Objects.requireNonNull(id, "space id is null");
+
         DocSpace existing = findSpace(id);
-        if (existing == null) {
-            throw new IllegalArgumentException("Space not found: " + id);
-        }
+        Objects.requireNonNull(existing, "Space not found, id: " + id);
+
         String nextName = normalizeName(name, existing.getName());
         ensureUniqueSpaceName(nextName, id);
 
@@ -104,43 +90,53 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public boolean deleteSpace(Long id) {
         if (id == null) {
             return false;
         }
-        return docSpaceMapper.deleteById(id) > 0;
+        boolean res =  docSpaceMapper.deleteById(id) > 0;
+        redisUtils.delete(RedisKeyQuickBuilder.spaceExists(id));
+        return res;
     }
-
+    @Override
     public List<DocNode> listTree(Long spaceId, boolean includeDeleted) {
         requireSpaceExists(spaceId);
         return docNodeMapper.listBySpace(spaceId, includeDeleted);
     }
-
+    @Override
     public DocNode findNode(Long id) {
         if (id == null) {
             return null;
         }
-        return docNodeMapper.selectByIdWithDoc(id);
+        String key = RedisKeyBuilder.key(RedisKeys.DOC_NODE, id);
+        DocNodeCacheReadResult cached = readDocNodeCache(key);
+        if (cached.hit) {
+            return cached.node;
+        }
+        DocNode node = docNodeMapper.selectByIdWithDoc(id);
+        writeDocNodeCache(key, node);
+        return node;
     }
-
+    @Override
     public DocRepo findRepoByNodeId(Long nodeId) {
         if (nodeId == null) {
             return null;
         }
         return docRepoMapper.selectByNodeId(nodeId);
     }
-
+    @Override
     public List<DocRef> listRefs(Long docId) {
         requireDocExists(docId);
         return docRefMapper.listByDocId(docId);
     }
-
+    @Override
     public DocCommit findLatestCommit(Long docId, String refName) {
         requireDocExists(docId);
         String resolvedRef = normalizeRefName(refName);
         return docCommitMapper.findLatestByRef(docId, resolvedRef);
     }
-
+    @Override
     public List<DocCommit> listCommitHistory(Long docId, String refName, int maxDepth) {
         requireDocExists(docId);
         String resolvedRef = normalizeRefName(refName);
@@ -149,15 +145,16 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocNode createNode(DocNodeCreateInput input, Long authorId) {
         if (input == null) {
-            throw new IllegalArgumentException("Input is required.");
+            throw new IllegalArgumentException("Input is required not null.");
         }
         Long spaceId = input.spaceId();
         requireSpaceExists(spaceId);
 
         DocumentNodeType nodeType = input.nodeType() == null ? DocumentNodeType.DOC : input.nodeType();
-        String title = normalizeName(input.title(), "Untitled");
+        String title = strictUniqueNormalizeName(input.title(), "Untitled " + nodeType.getValue());
         Long parentId = input.parentId();
         if (parentId != null) {
             DocNode parent = requireNode(parentId);
@@ -172,7 +169,7 @@ public class DocSystemService {
             }
         }
 
-        int sortKey = input.sortKey() != null ? input.sortKey() : nextSortKey(spaceId, parentId);
+        int sortKey = input.sortKey() != null ? input.sortKey() : docRedisService.nextSortKey(spaceId, parentId);
         DocNode node = new DocNode();
         node.setSpaceId(spaceId);
         node.setParentId(parentId);
@@ -198,6 +195,7 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocNode updateNode(Long id, DocNodeUpdateInput input) {
         DocNode existing = requireNode(id);
         if (input == null) {
@@ -213,10 +211,12 @@ public class DocSystemService {
             existing.setDeleted(input.deleted());
         }
         docNodeMapper.updateById(existing);
+        invalidateDocNodeCache(id);
         return requireNode(id);
     }
 
     @Transactional
+    @Override
     public DocNode moveNode(Long id, DocNodeMoveInput input) {
         DocNode node = requireNode(id);
         if (input == null) {
@@ -235,20 +235,28 @@ public class DocSystemService {
                 throw new IllegalArgumentException("Cannot move node under its descendant.");
             }
         }
-        int sortKey = input.sortKey() != null ? input.sortKey() : nextSortKey(node.getSpaceId(), targetParentId);
+        int sortKey = input.sortKey() != null ? input.sortKey() : docRedisService.nextSortKey(node.getSpaceId(), targetParentId);
         node.setParentId(targetParentId);
         node.setSortKey(sortKey);
         docNodeMapper.updateById(node);
+        invalidateDocNodeCache(id);
         return requireNode(id);
     }
 
     @Transactional
+    @Override
     public boolean deleteNode(Long id) {
         requireNode(id);
-        return docNodeMapper.markSubtreeDeleted(id) > 0;
+        List<Long> subtreeNodeIds = docNodeMapper.listSubtreeIds(id);
+        boolean deleted = docNodeMapper.markSubtreeDeleted(id) > 0;
+        if (deleted) {
+            invalidateDocNodeCaches(subtreeNodeIds);
+        }
+        return deleted;
     }
 
     @Transactional
+    @Override
     public DocRef createRef(Long docId, String refName, Long fromCommitId) {
         requireDocExists(docId);
         if (fromCommitId == null) {
@@ -267,6 +275,7 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public boolean deleteRef(Long docId, String refName) {
         requireDocExists(docId);
         String normalizedRef = normalizeRefName(refName);
@@ -281,6 +290,7 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocCommit commitDoc(DocCommitInput input, Long authorId) {
         if (input == null) {
             throw new IllegalArgumentException("Input is required.");
@@ -309,6 +319,7 @@ public class DocSystemService {
     }
 
     @Transactional
+    @Override
     public DocCommit mergeDoc(DocMergeInput input, Long authorId) {
         if (input == null) {
             throw new IllegalArgumentException("Input is required.");
@@ -363,13 +374,87 @@ public class DocSystemService {
         Long nodeId = docRepoMapper.findNodeIdByDocId(docId);
         if (nodeId != null) {
             docNodeMapper.updateTitle(nodeId, title);
+            invalidateDocNodeCache(nodeId);
         }
     }
 
-    private int nextSortKey(Long spaceId, Long parentId) {
-        Integer next = docNodeMapper.nextSortKey(spaceId, parentId);
-        return next == null ? 0 : next;
+    private DocNodeCacheReadResult readDocNodeCache(String key) {
+        String value = redisUtils.get(key);
+        if (value == null || value.isBlank()) {
+            return DocNodeCacheReadResult.miss();
+        }
+        if (DOC_NODE_NULL_SENTINEL.equals(value)) {
+            return DocNodeCacheReadResult.hit(null);
+        }
+        try {
+            return DocNodeCacheReadResult.hit(objectMapper.readValue(value, DocNode.class));
+        } catch (Exception ex) {
+            redisUtils.delete(key);
+            return DocNodeCacheReadResult.miss();
+        }
     }
+
+    private void writeDocNodeCache(String key, DocNode node) {
+        try {
+            if (node == null) {
+                redisUtils.setEx(
+                        key,
+                        DOC_NODE_NULL_SENTINEL,
+                        DOC_NODE_NULL_CACHE_TTL_SECONDS + ThreadLocalRandom.current().nextInt(0, 15),
+                        TimeUnit.SECONDS
+                );
+                return;
+            }
+            redisUtils.setEx(
+                    key,
+                    objectMapper.writeValueAsString(node),
+                    DOC_NODE_CACHE_TTL_MINUTES + ThreadLocalRandom.current().nextInt(0, 5),
+                    TimeUnit.MINUTES
+            );
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void invalidateDocNodeCache(Long nodeId) {
+        if (nodeId == null) {
+            return;
+        }
+        redisUtils.delete(RedisKeyBuilder.key(RedisKeys.DOC_NODE, nodeId));
+    }
+
+    private void invalidateDocNodeCaches(List<Long> nodeIds) {
+        if (nodeIds == null || nodeIds.isEmpty()) {
+            return;
+        }
+        List<String> keys = new ArrayList<>(nodeIds.size());
+        for (Long nodeId : nodeIds) {
+            if (nodeId != null) {
+                keys.add(RedisKeyBuilder.key(RedisKeys.DOC_NODE, nodeId));
+            }
+        }
+        if (!keys.isEmpty()) {
+            redisUtils.delete(keys);
+        }
+    }
+
+    private static final class DocNodeCacheReadResult {
+        private final boolean hit;
+        private final DocNode node;
+
+        private DocNodeCacheReadResult(boolean hit, DocNode node) {
+            this.hit = hit;
+            this.node = node;
+        }
+
+        private static DocNodeCacheReadResult hit(DocNode node) {
+            return new DocNodeCacheReadResult(true, node);
+        }
+
+        private static DocNodeCacheReadResult miss() {
+            return new DocNodeCacheReadResult(false, null);
+        }
+    }
+
 
     private boolean containsNode(Long rootNodeId, Long candidateId) {
         return docNodeMapper.countContains(rootNodeId, candidateId) > 0;
@@ -417,11 +502,23 @@ public class DocSystemService {
         }
     }
 
+    /**
+     * 检查这个spaceId是否存在，如果不存在会直接 throw exception
+     */
     private void requireSpaceExists(Long spaceId) {
         if (spaceId == null) {
             throw new IllegalArgumentException("spaceId is required.");
         }
-        if (docSpaceMapper.selectById(spaceId) == null) {
+//        if (docSpaceMapper.selectById(spaceId) == null) {
+//            throw new IllegalArgumentException("Space not found: " + spaceId);
+//        }
+        String key = RedisKeyQuickBuilder.spaceExists(spaceId);
+        if (redisUtils.hasKey(key)) {
+            return;
+        }
+        if (docSpaceMapper.isExistByIdNotDeleted(spaceId)) {
+            redisUtils.setEx(key, "1", 1, TimeUnit.DAYS);
+        } else {
             throw new IllegalArgumentException("Space not found: " + spaceId);
         }
     }

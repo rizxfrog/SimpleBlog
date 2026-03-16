@@ -5,22 +5,28 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="10229ead-6016-446b-b785-934ddf4f8660" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/constants/RedisKeys.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/entity/RedisKeySpec.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/utils/RedisKeyQuickBuilder.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/utils/RedisKeySpec.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/utils/base/BaseKeyBuilder.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/redisService/IDocSystemRedisService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/redisService/impl/DocSystemRedisService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/impl/DocSystemService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/test/java/TestRedisKeyBuilder.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../todo.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/dataSources.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../doc/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/../doc/schema.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/views/AdminDocs.vue" beforeDir="false" afterPath="$PROJECT_DIR$/src/views/AdminDocs.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/views/DocsView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/src/views/DocsView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/DocumentGraphqlController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/DocumentGraphqlController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocumentMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocumentMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/dto/DocumentCreateInput.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/dto/DocumentCreateInput.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/Document.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/Document.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentRevision.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentRevision.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentSearchDocument.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentSearchDocument.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentRevisionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentRevisionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentSearchService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentSearchService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocumentService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/main/resources/graphql/schema.graphqls" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/resources/graphql/schema.graphqls" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/data_source_mapping.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/data_source_mapping.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/utils/RedisKeyBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/common/utils/RedisKeyBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/config/GraphqlExceptionResolver.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/config/GraphqlExceptionResolver.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/BlogGraphqlController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/BlogGraphqlController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/DocSystemGraphqlController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/graphql/DocSystemGraphqlController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocNodeMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocNodeMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocSpaceMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/mapper/DocSpaceMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentNodeType.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/model/entity/DocumentNodeType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/security/JwtService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/security/JwtService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/DocSystemService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/java/com/simpleblog/service/IDocSystemService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../src/main/resources/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,6 +87,7 @@
       <workItem from="1769613057895" duration="3327000" />
       <workItem from="1771076280196" duration="212000" />
       <workItem from="1771076528545" duration="217000" />
+      <workItem from="1772073077292" duration="47000" />
     </task>
     <servers />
   </component>

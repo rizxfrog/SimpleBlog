@@ -24,4 +24,13 @@ public interface DocSpaceMapper extends BaseMapper<DocSpace> {
               and (#{excludingId} is null or id <> #{excludingId})
             """)
     long countByName(@Param("name") String name, @Param("excludingId") Long excludingId);
+
+    @Select("""
+        select 1
+        from doc_space
+        where id = #{id}
+            and not is_deleted
+        limit 1
+        """)
+    boolean isExistByIdNotDeleted(@Param("id") Long id);
 }
