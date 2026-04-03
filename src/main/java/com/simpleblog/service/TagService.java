@@ -1,41 +1,35 @@
 package com.simpleblog.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.simpleblog.mapper.TagMapper;
 import com.simpleblog.model.entity.Tag;
-import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 
-@Service
-public class TagService {
-    private final TagMapper tagMapper;
+public interface TagService {
+    /**
+     * 查询所有标签
+     * @return 标签列表
+     */
+    List<Tag> listAll();
 
-    public TagService(TagMapper tagMapper) {
-        this.tagMapper = tagMapper;
-    }
+    /**
+     * 根据ID查找标签
+     * @param id 标签ID
+     * @return 标签对象
+     */
+    Tag findById(Long id);
 
-    public List<Tag> listAll() {
-        return tagMapper.selectList(new QueryWrapper<>());
-    }
+    /**
+     * 根据ID列表批量查询标签
+     * @param ids 标签ID列表
+     * @return 标签列表
+     */
+    List<Tag> listByIds(List<Long> ids);
 
-    public Tag findById(Long id) {
-        return tagMapper.selectById(id);
-    }
-
-    public List<Tag> listByIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return tagMapper.selectBatchIds(ids);
-    }
-
-    public Tag create(String name, String slug) {
-        Tag tag = new Tag();
-        tag.setName(name);
-        tag.setSlug(slug);
-        tagMapper.insert(tag);
-        return tag;
-    }
+    /**
+     * 创建标签
+     * @param name 标签名称
+     * @param slug 标签别名
+     * @return 创建的标签
+     */
+    Tag create(String name, String slug);
 }

@@ -1,146 +1,37 @@
 package com.simpleblog.service;
 
-import com.simpleblog.mapper.DocumentMapper;
-import com.simpleblog.mapper.DocumentRevisionMapper;
 import com.simpleblog.model.entity.Document;
-import com.simpleblog.model.entity.DocumentNodeType;
 import com.simpleblog.model.entity.DocumentRevision;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
-@Service
-public class DocumentRevisionService {
-    private final DocumentRevisionMapper documentRevisionMapper;
-    private final DocumentMapper documentMapper;
-    private final DocumentSearchService documentSearchService;
+public interface DocumentRevisionService {
+    /**
+     * 查询文档的所有修订版本
+     * @param documentId 文档ID
+     * @return 修订版本列表
+     */
+    List<DocumentRevision> listByDocumentId(Long documentId);
 
-    public DocumentRevisionService(DocumentRevisionMapper documentRevisionMapper,
-                                   DocumentMapper documentMapper,
-                                   DocumentSearchService documentSearchService) {
-        this.documentRevisionMapper = documentRevisionMapper;
-        this.documentMapper = documentMapper;
-        this.documentSearchService = documentSearchService;
-    }
+    /**
+     * 根据ID查找修订版本
+     * @param revisionId 修订版本ID
+     * @return 修订版本对象
+     */
+    DocumentRevision findById(Long revisionId);
 
-    public List<DocumentRevision> listByDocumentId(Long documentId) {
-        if (documentId == null) {
-            return List.of();
-        }
-        return documentRevisionMapper.listByDocumentId(documentId);
-    }
+    /**
+     * 恢复文档到指定修订版本
+     * @param revisionId 修订版本ID
+     * @param userId 用户ID
+     * @return 恢复后的文档
+     */
+    Document restore(Long revisionId, Long userId);
 
-    public DocumentRevision findById(Long revisionId) {
-        if (revisionId == null) {
-            return null;
-        }
-        return documentRevisionMapper.selectById(revisionId);
-    }
-
-    @Transactional
-    public Document restore(Long revisionId, Long userId) {
-        DocumentRevision revision = documentRevisionMapper.selectById(revisionId);
-        if (revision == null) {
-            throw new IllegalArgumentException("Revision not found: " + revisionId);
-        }
-        Document document = documentMapper.selectById(revision.getDocumentId());
-        if (document == null) {
-            throw new IllegalArgumentException("Document not found: " + revision.getDocumentId());
-        }
-        recordRevision(document, userId);
-
-        DocumentNodeType type = revision.getType();
-        String oldPath = document.getPath();
-        document.setTitle(revision.getTitle());
-        document.setContent(type == DocumentNodeType.DOC ? revision.getContent() : null);
-        document.setType(type);
-        document.setHidden(revision.getHidden());
-        document.setSortOrder(revision.getSortOrder());
-        document.setProject(revision.getProject());
-        document.setVersion(revision.getVersion());
-
-        Long parentId = revision.getParentId();
-        String path = revision.getPath();
-        if (parentId != null) {
-            Document parent = documentMapper.selectById(parentId);
-            if (parent == null
-                    || !document.getProject().equals(parent.getProject())
-                    || !document.getVersion().equals(parent.getVersion())) {
-                parentId = null;
-                path = normalizeRootPath(path);
-            }
-        }
-
-        String project = document.getProject();
-        String version = document.getVersion();
-        String uniquePath = ensureUniquePath(path, document.getId(), project, version);
-        if (oldPath != null && !oldPath.equals(uniquePath)) {
-            documentMapper.updatePathPrefix(oldPath, uniquePath, project, version);
-        }
-        document.setParentId(parentId);
-        document.setPath(uniquePath);
-        document.setUpdatedBy(userId);
-        document.setUpdatedAt(LocalDateTime.now());
-        documentMapper.updateById(document);
-        reindexSubtree(uniquePath, project, version);
-        return document;
-    }
-
-    public void recordRevision(Document document, Long userId) {
-        if (document == null || document.getId() == null) {
-            return;
-        }
-        int next = documentRevisionMapper.maxRevisionNumber(document.getId()) + 1;
-        DocumentRevision revision = new DocumentRevision();
-        revision.setDocumentId(document.getId());
-        revision.setType(document.getType());
-        revision.setTitle(document.getTitle());
-        revision.setContent(document.getContent());
-        revision.setProject(document.getProject());
-        revision.setVersion(document.getVersion());
-        revision.setPath(document.getPath());
-        revision.setParentId(document.getParentId());
-        revision.setSortOrder(document.getSortOrder());
-        revision.setHidden(document.getHidden());
-        revision.setRevisionNumber(next);
-        revision.setCreatedBy(userId);
-        revision.setCreatedAt(LocalDateTime.now());
-        documentRevisionMapper.insert(revision);
-    }
-
-    private String normalizeRootPath(String path) {
-        if (path == null || path.isBlank()) {
-            return "restored";
-        }
-        String slug = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1) : path;
-        return slug.isBlank() ? "restored" : slug;
-    }
-
-    private String ensureUniquePath(String basePath, Long documentId, String project, String version) {
-        if (basePath == null || basePath.isBlank()) {
-            basePath = "restored";
-        }
-        if (documentMapper.countByPathExcludingId(basePath, documentId, project, version) == 0) {
-            return basePath;
-        }
-        String candidate = basePath;
-        int suffix = 2;
-        while (documentMapper.countByPathExcludingId(candidate, documentId, project, version) > 0) {
-            candidate = basePath + "_r" + suffix;
-            suffix += 1;
-        }
-        return candidate;
-    }
-
-    private void reindexSubtree(String rootPath, String project, String version) {
-        if (rootPath == null || rootPath.isBlank()) {
-            return;
-        }
-        List<Document> subtree = documentMapper.listSubtree(rootPath, true, project, version);
-        for (Document item : subtree) {
-            documentSearchService.indexDocument(item);
-        }
-    }
+    /**
+     * 记录文档修订
+     * @param document 文档对象
+     * @param userId 用户ID
+     */
+    void recordRevision(Document document, Long userId);
 }

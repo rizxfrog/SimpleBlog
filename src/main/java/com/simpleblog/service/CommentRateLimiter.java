@@ -1,31 +1,12 @@
 package com.simpleblog.service;
 
-import org.springframework.stereotype.Component;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-@Component
-public class CommentRateLimiter {
-    private final Map<String, Deque<Long>> buckets = new ConcurrentHashMap<>();
-
-    public boolean allow(String key, int limit, long windowMs) {
-        if (key == null || key.isBlank()) {
-            key = "unknown";
-        }
-        long now = System.currentTimeMillis();
-        Deque<Long> queue = buckets.computeIfAbsent(key, k -> new ArrayDeque<>());
-        synchronized (queue) {
-            while (!queue.isEmpty() && now - queue.peekFirst() > windowMs) {
-                queue.pollFirst();
-            }
-            if (queue.size() >= limit) {
-                return false;
-            }
-            queue.addLast(now);
-            return true;
-        }
-    }
+public interface CommentRateLimiter {
+    /**
+     * 检查是否允许评论
+     * @param key 限流键(通常是IP)
+     * @param limit 限制次数
+     * @param windowMs 时间窗口(毫秒)
+     * @return 是否允许
+     */
+    boolean allow(String key, int limit, long windowMs);
 }

@@ -1,32 +1,29 @@
 package com.simpleblog.service;
 
-import com.simpleblog.mapper.RoleMapper;
-import com.simpleblog.mapper.UserMapper;
 import com.simpleblog.model.entity.Role;
 import com.simpleblog.model.entity.User;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
-public class UserService {
-    private final UserMapper userMapper;
-    private final RoleMapper roleMapper;
+public interface UserService {
+    /**
+     * 根据用户名查找用户
+     * @param username 用户名
+     * @return 用户对象
+     */
+    User findByUsername(String username);
 
-    public UserService(UserMapper userMapper, RoleMapper roleMapper) {
-        this.userMapper = userMapper;
-        this.roleMapper = roleMapper;
-    }
+    /**
+     * 根据ID查找用户
+     * @param id 用户ID
+     * @return 用户对象
+     */
+    User findById(Long id);
 
-    public User findByUsername(String username) {
-        return userMapper.findByUsername(username);
-    }
-
-    public User findById(Long id) {
-        return userMapper.selectById(id);
-    }
-
-    public List<Role> findRoles(Long userId) {
-        return roleMapper.findRolesByUserId(userId);
-    }
+    /**
+     * 查找用户的角色列表
+     * @param userId 用户ID
+     * @return 角色列表
+     */
+    List<Role> findRoles(Long userId);
 }

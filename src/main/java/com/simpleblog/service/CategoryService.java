@@ -1,33 +1,28 @@
 package com.simpleblog.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.simpleblog.mapper.CategoryMapper;
 import com.simpleblog.model.entity.Category;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
-public class CategoryService {
-    private final CategoryMapper categoryMapper;
+public interface CategoryService {
+    /**
+     * 查询所有分类
+     * @return 分类列表
+     */
+    List<Category> listAll();
 
-    public CategoryService(CategoryMapper categoryMapper) {
-        this.categoryMapper = categoryMapper;
-    }
+    /**
+     * 根据ID查找分类
+     * @param id 分类ID
+     * @return 分类对象
+     */
+    Category findById(Long id);
 
-    public List<Category> listAll() {
-        return categoryMapper.selectList(new QueryWrapper<>());
-    }
-
-    public Category findById(Long id) {
-        return categoryMapper.selectById(id);
-    }
-
-    public Category create(String name, String slug) {
-        Category category = new Category();
-        category.setName(name);
-        category.setSlug(slug);
-        categoryMapper.insert(category);
-        return category;
-    }
+    /**
+     * 创建分类
+     * @param name 分类名称
+     * @param slug 分类别名
+     * @return 创建的分类
+     */
+    Category create(String name, String slug);
 }
